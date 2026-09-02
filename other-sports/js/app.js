@@ -177,12 +177,12 @@ function fmtDateSlash(str) {
   return `${mm}/${dd}/${d.getFullYear()}`;
 }
 
-function dateToYyyymmdd(str) {
+function dateToIso(str) {
   const d = parseDateSafe(str);
   if (!d) return null;
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}${mm}${dd}`;
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 function byField(key, dir) {
@@ -447,21 +447,21 @@ function renderTable(games) {
   }
 }
 
-// ── ESPN GAME DETAIL ──────────────────────────────────────────
-async function fetchMlbEspnGame(g) {
-  const dateStr = dateToYyyymmdd(g.dateRaw);
+// ── BOX SCORE DETAIL ──────────────────────────────────────────
+async function fetchMlbGame(g) {
+  const dateStr = dateToIso(g.dateRaw);
   if (!dateStr || !g.homeAbbr || !g.awayAbbr) return null;
   const cacheKey = `${dateStr}|${g.homeAbbr}|${g.awayAbbr}`;
   if (mlbEspnCache[cacheKey]) return mlbEspnCache[cacheKey];
 
   try {
-    const res = await fetch(`/.netlify/functions/espn-mlb-game?date=${dateStr}&home=${g.homeAbbr}&away=${g.awayAbbr}`);
+    const res = await fetch(`/.netlify/functions/mlb-game?date=${dateStr}&home=${g.homeAbbr}&away=${g.awayAbbr}`);
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || `Proxy error ${res.status}`);
     mlbEspnCache[cacheKey] = data;
     return data;
   } catch (err) {
-    console.error("[espn-mlb-game] failed:", err);
+    console.error("[mlb-game] failed:", err);
     return null;
   }
 }
@@ -475,7 +475,7 @@ async function loadMlbDetailForGame(g, panelId) {
     return;
   }
 
-  const data = await fetchMlbEspnGame(g);
+  const data = await fetchMlbGame(g);
   const p = document.getElementById(panelId);
   if (!p) return;
 
@@ -487,8 +487,8 @@ async function loadMlbDetailForGame(g, panelId) {
 }
 
 function renderMlbDetail(panel, data, g) {
-  const { score, innings, totals, scoringPlays, teamStats, stars, eventId } = data;
-  const espnUrl = eventId ? `https://www.espn.com/mlb/game/_/gameId/${eventId}` : "https://www.espn.com/mlb/scoreboard";
+  const { score, innings, totals, scoringPlays, teamStats, stars, gamePk } = data;
+  const gamedayUrl = gamePk ? `https://www.mlb.com/gameday/${gamePk}` : "https://www.mlb.com/scores";
 
   const inningHeaderCells = innings.map((p) => `<th>${p.label}</th>`).join("");
   const awayInningCells = innings.map((p) => `<td>${p.away}</td>`).join("");
@@ -518,7 +518,7 @@ function renderMlbDetail(panel, data, g) {
       <div class="mlb-header">
         <div class="mlb-status">${score.status}</div>
         ${linescoreHtml}
-        <a href="${espnUrl}" target="_blank" class="mlb-ext-link">Full box score on ESPN ↗</a>
+        <a href="${gamedayUrl}" target="_blank" class="mlb-ext-link">Full box score on MLB.com ↗</a>
       </div>
 
       <div class="mlb-two-col">

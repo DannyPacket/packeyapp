@@ -11,7 +11,7 @@ const FUNCTIONS = {
   "fetch-sheet": require("./netlify/functions/fetch-sheet.js").handler,
   "fetch-games": require("./netlify/functions/fetch-games.js").handler,
   "espn-game": require("./netlify/functions/espn-game.js").handler,
-  "espn-mlb-game": require("./netlify/functions/espn-mlb-game.js").handler,
+  "mlb-game": require("./netlify/functions/mlb-game.js").handler,
 };
 
 const PORT = process.env.PORT || 3000;
