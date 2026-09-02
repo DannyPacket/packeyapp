@@ -10,6 +10,10 @@ const HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Cache-Control": "public, max-age=300",
 };
+// Error responses must never be cached — a transient miss (or, earlier, the
+// pre-User-Agent-fix 403) would otherwise get stuck at the CDN edge for the
+// full 5 minutes and keep being served instead of a retry hitting fresh code.
+const ERROR_HEADERS = { ...HEADERS, "Cache-Control": "no-store" };
 
 // ESPN's WAF appears to reject the bare "node" user-agent Netlify Functions
 // send by default (works fine from a plain dev machine, 403s in prod) — a
@@ -20,7 +24,7 @@ const ESPN_FETCH_HEADERS = {
 };
 
 function ok(body)  { return { statusCode: 200, headers: HEADERS, body: JSON.stringify(body) }; }
-function err(code, msg) { return { statusCode: code, headers: HEADERS, body: JSON.stringify({ error: msg }) }; }
+function err(code, msg) { return { statusCode: code, headers: ERROR_HEADERS, body: JSON.stringify({ error: msg }) }; }
 
 // A few of our abbreviations differ from ESPN's scoreboard/logo slugs.
 const ESPN_ABBR_OVERRIDES = { CWS: "chw", OAK: "ath" };
