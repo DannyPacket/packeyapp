@@ -576,9 +576,9 @@ function mlbPlayerCardHtml(st, { rankLabel } = {}) {
   return `<div class="mlb-star-card">
     <div class="mlb-star-card-body">
       <div>
-        ${rankLabel ? `<div class="mlb-star-rank">${rankLabel}</div>` : ""}
         <div class="mlb-star-name">${st.name || "—"}${mlbLogoNoName(st.team)}</div>
         ${st.summary ? `<div class="mlb-star-stat">${st.summary}</div>` : ""}
+        ${rankLabel ? `<div class="mlb-star-rank">${rankLabel}</div>` : ""}
       </div>
       ${headshot}
     </div>
@@ -595,14 +595,28 @@ function buildMlbPotg(playerOfGame, topPerformers) {
   return `<div class="mlb-stars-col">${potgHtml}${topHtml}</div>`;
 }
 
+function mlbDecisionRowHtml(role, decision, stripPrefix) {
+  const headshot = decision.headshot
+    ? `<img src="${decision.headshot}" class="mlb-decision-headshot" alt="${decision.name}" onerror="this.style.display='none'">`
+    : "";
+  const record = (decision.record || "").replace(stripPrefix, "");
+  return `<div class="mlb-decision-row">
+    ${headshot}
+    <div>
+      <span class="mlb-decision-role">${role}</span> ${decision.name}
+      ${record ? `<span class="mlb-decision-record">(${record})</span>` : ""}
+    </div>
+  </div>`;
+}
+
 function buildMlbPitchingDecisions(decisions) {
   if (!decisions) return "";
-  const parts = [];
-  if (decisions.win) parts.push(`<span class="mlb-decision-role">W</span> ${decisions.win.name} (${(decisions.win.record || "").replace(/^W,?\s*/, "")})`);
-  if (decisions.loss) parts.push(`<span class="mlb-decision-role">L</span> ${decisions.loss.name} (${(decisions.loss.record || "").replace(/^L,?\s*/, "")})`);
-  if (decisions.save) parts.push(`<span class="mlb-decision-role">SV</span> ${decisions.save.name} (${(decisions.save.record || "").replace(/^SV,?\s*/, "")})`);
-  if (!parts.length) return "";
-  return `<div class="mlb-pitching-decisions">${parts.join(" &nbsp;·&nbsp; ")}</div>`;
+  const rows = [];
+  if (decisions.win) rows.push(mlbDecisionRowHtml("W", decisions.win, /^W,?\s*/));
+  if (decisions.loss) rows.push(mlbDecisionRowHtml("L", decisions.loss, /^L,?\s*/));
+  if (decisions.save) rows.push(mlbDecisionRowHtml("SV", decisions.save, /^SV,?\s*/));
+  if (!rows.length) return "";
+  return `<div class="mlb-pitching-decisions">${rows.join("")}</div>`;
 }
 
 // ── MAP ───────────────────────────────────────────────────────

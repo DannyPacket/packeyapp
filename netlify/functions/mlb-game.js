@@ -187,7 +187,7 @@ async function fetchGameData(gamePk) {
     if (!p) return null;
     const side = homePitchers.has(p.id) ? "home" : "away";
     const record = (boxTeams[side]?.players?.[`ID${p.id}`]?.stats?.pitching?.note || "").replace(/[()]/g, "");
-    return { name: p.fullName || "", record };
+    return { name: p.fullName || "", record, headshot: headshotUrl(p.id) };
   }
   const pitchingDecisions = {
     win: decisionInfo("winner"),
