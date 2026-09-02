@@ -76,14 +76,13 @@
 .os-app .os-map { height: 480px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 1.5rem; background: var(--surface); isolation: isolate; }
 .os-app .logo-icon-wrap { background: transparent !important; border: none !important; overflow: visible !important; }
 .os-app .venue-logo-marker {
-  width: 34px; height: 34px; border-radius: 50%; background: #fff;
-  border: 2px solid rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s; padding: 3px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  width: 34px; height: 34px; border-radius: 50%; background: rgba(10,10,10,0.72);
+  border: 2px solid rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; padding: 3px;
 }
 .os-app .venue-logo-marker img { width: 24px; height: 24px; object-fit: contain; display: block; }
 .os-app .venue-logo-marker:hover { transform: scale(1.2); }
-.os-app .venue-logo-dim { background: rgba(255,255,255,0.45); }
+.os-app .venue-logo-visited { border-color: rgba(255,255,255,0.9); }
 .os-app .venue-logo-dim img { filter: grayscale(1) opacity(0.5); }
 .os-app .venue-logo-selected { border-color: #FFB81C !important; box-shadow: 0 0 0 2px rgba(255,184,28,0.35), 0 3px 12px rgba(0,0,0,0.6) !important; }
 

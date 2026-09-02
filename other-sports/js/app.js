@@ -412,6 +412,7 @@ function renderTable(games) {
 // ── MAP ───────────────────────────────────────────────────────
 function createVenueIcon(abbr, visited, selected) {
   let cls = "venue-logo-marker";
+  if (visited) cls += " venue-logo-visited";
   if (!visited && !selected) cls += " venue-logo-dim";
   if (selected) cls += " venue-logo-selected";
   return L.divIcon({
