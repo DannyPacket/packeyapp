@@ -82,7 +82,12 @@ function resolveAbbr(name) {
 
 function logoSrcForAbbr(abbr) {
   const team = TEAMS_BY_ABBR[abbr];
-  return `https://a.espncdn.com/i/teamlogos/mlb/500/${(team.espn || abbr.toLowerCase())}.png`;
+  // Falls back to the abbr itself (lowercased) for codes we don't have in
+  // MLB_TEAMS — e.g. ESPN's own abbreviation for a team, which is already a
+  // valid logo slug on its own (used by the box-score panel's linescore/
+  // scoring-play team logos).
+  const slug = team?.espn || (abbr || "").toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${slug}.png`;
 }
 
 function mlbLogo(name) {
@@ -100,6 +105,8 @@ let mapInstance = null;
 let mapMarkers = [];
 let openDropdown = null; // null | "season" | "home" | "away"
 let activeFilters = { gameType: "All", season: [], homeTeam: [], awayTeam: [] };
+let expandBbRow = null; // index into the currently-rendered table rows
+const mlbEspnCache = {}; // "YYYY-MM-DD|home|away" → normalised ESPN game data
 
 // ── BOOT ──────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -168,6 +175,14 @@ function fmtDateSlash(str) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+function dateToYyyymmdd(str) {
+  const d = parseDateSafe(str);
+  if (!d) return null;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}${mm}${dd}`;
 }
 
 function byField(key, dir) {
@@ -402,18 +417,178 @@ function renderTable(games) {
   const sorted = sortedGames(rows);
   const tbody = document.querySelector("#bb-table tbody");
   tbody.innerHTML = sorted.length
-    ? sorted.map((g) => `
-      <tr>
-        <td>${g.season || "—"}</td>
-        <td>${g.gameType || "—"}</td>
-        <td>${fmtDateSlash(g.dateRaw)}</td>
-        <td>${mlbLogo(g.homeTeamRaw)}<span>${g.homeTeamRaw}</span></td>
-        <td>${mlbLogo(g.awayTeamRaw)}<span>${g.awayTeamRaw}</span></td>
-        <td>${g.homeRuns}–${g.awayRuns}</td>
-        <td>${g.guest || "—"}</td>
-        <td>${g.notes || "—"}</td>
-      </tr>`).join("")
+    ? sorted.map((g, i) => {
+        const isOpen = expandBbRow === i;
+        return `
+        <tr class="bb-row${isOpen ? " row-open" : ""}" data-bb-i="${i}" title="Click to view box score">
+          <td>${g.season || "—"}</td>
+          <td>${g.gameType || "—"}</td>
+          <td><span class="bb-date-btn">${fmtDateSlash(g.dateRaw)}</span> <span class="chevron">${isOpen ? "▴" : "▾"}</span></td>
+          <td>${mlbLogo(g.homeTeamRaw)}<span>${g.homeTeamRaw}</span></td>
+          <td>${mlbLogo(g.awayTeamRaw)}<span>${g.awayTeamRaw}</span></td>
+          <td>${g.homeRuns}–${g.awayRuns}</td>
+          <td>${g.guest || "—"}</td>
+          <td>${g.notes || "—"}</td>
+        </tr>
+        ${isOpen ? `<tr class="bb-expand-tr"><td colspan="8" style="padding:0"><div class="mlb-panel" id="bb-panel-${i}"><div class="mlb-loading">Loading box score…</div></div></td></tr>` : ""}`;
+      }).join("")
     : `<tr><td class="no-results" colspan="8">No games found.</td></tr>`;
+
+  tbody.querySelectorAll(".bb-row").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const i = +tr.dataset.bbI;
+      expandBbRow = expandBbRow === i ? null : i;
+      renderTable(games);
+    });
+  });
+
+  if (expandBbRow !== null && expandBbRow < sorted.length) {
+    loadMlbDetailForGame(sorted[expandBbRow], `bb-panel-${expandBbRow}`);
+  }
+}
+
+// ── ESPN GAME DETAIL ──────────────────────────────────────────
+async function fetchMlbEspnGame(g) {
+  const dateStr = dateToYyyymmdd(g.dateRaw);
+  if (!dateStr || !g.homeAbbr || !g.awayAbbr) return null;
+  const cacheKey = `${dateStr}|${g.homeAbbr}|${g.awayAbbr}`;
+  if (mlbEspnCache[cacheKey]) return mlbEspnCache[cacheKey];
+
+  try {
+    const res = await fetch(`/.netlify/functions/espn-mlb-game?date=${dateStr}&home=${g.homeAbbr}&away=${g.awayAbbr}`);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Proxy error ${res.status}`);
+    mlbEspnCache[cacheKey] = data;
+    return data;
+  } catch (err) {
+    console.error("[espn-mlb-game] failed:", err);
+    return null;
+  }
+}
+
+async function loadMlbDetailForGame(g, panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  if (!g.homeAbbr || !g.awayAbbr) {
+    panel.innerHTML = `<div class="mlb-error">Can't look up a box score — one of the team names isn't recognized. Try renaming it to the team's full name in the sheet.</div>`;
+    return;
+  }
+
+  const data = await fetchMlbEspnGame(g);
+  const p = document.getElementById(panelId);
+  if (!p) return;
+
+  if (!data) {
+    p.innerHTML = `<div class="mlb-error">No ESPN box score found for ${fmtDateSlash(g.dateRaw)}.</div>`;
+    return;
+  }
+  renderMlbDetail(p, data, g);
+}
+
+function renderMlbDetail(panel, data, g) {
+  const { score, innings, totals, scoringPlays, teamStats, stars, eventId } = data;
+  const espnUrl = eventId ? `https://www.espn.com/mlb/game/_/gameId/${eventId}` : "https://www.espn.com/mlb/scoreboard";
+
+  const inningHeaderCells = innings.map((p) => `<th>${p.label}</th>`).join("");
+  const awayInningCells = innings.map((p) => `<td>${p.away}</td>`).join("");
+  const homeInningCells = innings.map((p) => `<td>${p.home}</td>`).join("");
+
+  const linescoreHtml = `
+    <div class="table-wrap">
+      <table class="linescore-table">
+        <thead><tr><th></th>${inningHeaderCells}<th>R</th><th>H</th><th>E</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${mlbLogoNoName(score.awayAbbr)}<span>${score.awayAbbr}</span></td>
+            ${awayInningCells}
+            <td class="linescore-total">${totals.awayR}</td><td>${totals.awayH}</td><td>${totals.awayE}</td>
+          </tr>
+          <tr>
+            <td>${mlbLogoNoName(score.homeAbbr)}<span>${score.homeAbbr}</span></td>
+            ${homeInningCells}
+            <td class="linescore-total">${totals.homeR}</td><td>${totals.homeH}</td><td>${totals.homeE}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  panel.innerHTML = `
+    <div class="mlb-detail">
+      <div class="mlb-header">
+        <div class="mlb-status">${score.status}</div>
+        ${linescoreHtml}
+        <a href="${espnUrl}" target="_blank" class="mlb-ext-link">Full box score on ESPN ↗</a>
+      </div>
+
+      <div class="mlb-two-col">
+        <div class="mlb-section">
+          <div class="mlb-section-title">Scoring</div>
+          ${buildMlbScoring(scoringPlays)}
+        </div>
+        <div class="mlb-section">
+          <div class="mlb-section-title">Team Stats</div>
+          ${buildMlbTeamStats(teamStats, score)}
+        </div>
+        <div class="mlb-section">
+          <div class="mlb-section-title">Stars of the Game</div>
+          ${buildMlbStars(stars)}
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildMlbScoring(plays) {
+  if (!plays || !plays.length) return `<p class="mlb-empty">No scoring plays available.</p>`;
+  return `<div class="mlb-scoring-log">${plays.map((p) => `
+    <div class="mlb-score-row">
+      <span class="mlb-score-inning">${p.inning}</span>
+      <span class="mlb-score-team-logo">${p.team ? mlbLogoNoName(p.team) : ""}</span>
+      <div class="mlb-score-detail">
+        ${p.tag ? `<span class="mlb-score-tag">${p.tag}</span>` : ""}
+        <div class="mlb-score-text">${p.text}</div>
+        <div class="mlb-score-snap">${p.awayScore}–${p.homeScore}</div>
+      </div>
+    </div>`).join("")}</div>`;
+}
+
+function buildMlbTeamStats(teamStats, score) {
+  if (!teamStats || !teamStats.length) return `<p class="mlb-empty">No team stats available.</p>`;
+  const rows = teamStats.map((s) => {
+    const av = parseFloat(s.away), hv = parseFloat(s.home);
+    const awayHi = !isNaN(av) && !isNaN(hv) && av > hv ? " stat-val-hi" : "";
+    const homeHi = !isNaN(av) && !isNaN(hv) && hv > av ? " stat-val-hi" : "";
+    return `<tr>
+      <td class="stat-label">${s.label}</td>
+      <td class="${awayHi}">${s.away}</td>
+      <td class="${homeHi}">${s.home}</td>
+    </tr>`;
+  }).join("");
+  return `<table class="team-stats-table">
+    <thead><tr><th></th><th>${score.awayAbbr}</th><th>${score.homeAbbr}</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function buildMlbStars(stars) {
+  if (!stars || !stars.length) return `<p class="mlb-empty">No stars data available.</p>`;
+  return `<div class="mlb-stars-col">${stars.map((st) => {
+    const statLine = (st.stats || []).map((s) => `${s.label}: ${s.value}`).join(" · ");
+    const headshot = st.headshot
+      ? `<img src="${st.headshot}" class="mlb-star-headshot" alt="${st.name}" onerror="this.style.display='none'">`
+      : "";
+    return `<div class="mlb-star-card">
+      <div class="mlb-star-card-body">
+        <div>
+          <div class="mlb-star-rank">${st.role}</div>
+          <div class="mlb-star-name">${st.name || "—"}</div>
+          <div class="mlb-star-meta">${st.team || ""}</div>
+          ${statLine ? `<div class="mlb-star-stat">${statLine}</div>` : ""}
+        </div>
+        ${headshot}
+      </div>
+    </div>`;
+  }).join("")}</div>`;
 }
 
 // ── MAP ───────────────────────────────────────────────────────
