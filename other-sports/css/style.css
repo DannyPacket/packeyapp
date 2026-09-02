@@ -137,9 +137,12 @@
 /* minmax(0, ...) keeps each track capped at its share even when the scoring
    log's long play text would otherwise force a wider min-content width and
    shove Team Stats / Player of the Game off to the right. */
-.os-app .mlb-two-col { display: grid; grid-template-columns: minmax(0,0.7fr) minmax(0,1.15fr) minmax(0,1.15fr); align-items: start; gap: 1rem; margin-top: 0.75rem; }
+.os-app .mlb-two-col { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1.15fr) minmax(0,1.15fr); align-items: start; gap: 1rem; margin-top: 0.75rem; }
 @media (max-width: 640px) { .os-app .mlb-two-col { grid-template-columns: 1fr; } }
-.os-app .mlb-top-performers-label { font-family: var(--font-d); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin: 0.7rem 0 0.4rem; }
+.os-app .mlb-top-performers-label {
+  font-family: var(--font-d); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim); background: var(--surface3); border-radius: 4px; padding: 0.3rem 0.6rem; margin: 0.85rem 0 0.5rem;
+}
 .os-app .mlb-section-title { font-family: var(--font-d); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rust); margin-bottom: 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
 .os-app .mlb-empty { color: var(--text-dim); font-size: 0.84rem; padding: 0.4rem 0; }
 
@@ -150,7 +153,7 @@
 .os-app .mlb-score-team-logo img { width: 20px; height: 20px; object-fit: contain; margin-top: 1px; }
 .os-app .mlb-score-detail { flex: 1; min-width: 0; }
 .os-app .mlb-score-tag { font-size: 0.68rem; font-family: var(--font-d); font-weight: 700; letter-spacing: 0.05em; color: var(--rust); background: rgba(224,113,74,0.12); padding: 2px 6px; border-radius: 4px; }
-.os-app .mlb-score-text { color: var(--text); margin-top: 2px; }
+.os-app .mlb-score-text { color: var(--text); margin-top: 2px; white-space: normal; overflow-wrap: break-word; }
 .os-app .mlb-score-snap { color: var(--rust); font-size: 0.76rem; margin-top: 2px; font-family: var(--font-d); font-weight: 600; }
 
 .os-app .team-stats-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }

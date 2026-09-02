@@ -123,9 +123,25 @@ async function fetchGameData(gamePk) {
   }).filter(Boolean);
 
   // Stars — MLB's natural equivalent of hockey's three stars is the game's
-  // pitching decisions (win/loss/save).
+  // pitching decisions (win/loss/save), each with their actual line from the
+  // box score (boxscore.teams.{side}.players is keyed "ID<personId>").
   const homePitchers = new Set(boxTeams.home?.pitchers || []);
   const decisions = live.decisions || {};
+  const PITCH_STAT_DEFS = [
+    { name: "inningsPitched", label: "IP" },
+    { name: "hits", label: "H" },
+    { name: "earnedRuns", label: "ER" },
+    { name: "baseOnBalls", label: "BB" },
+    { name: "strikeOuts", label: "K" },
+  ];
+  function pitchingLine(personId, side) {
+    const p = boxTeams[side]?.players?.[`ID${personId}`];
+    const line = p?.stats?.pitching;
+    if (!line) return [];
+    return PITCH_STAT_DEFS
+      .filter(({ name }) => line[name] != null)
+      .map(({ name, label }) => ({ label, value: String(line[name]) }));
+  }
   const ROLE_DEFS = [
     { key: "winner", role: "Win" },
     { key: "loser", role: "Loss" },
@@ -134,8 +150,9 @@ async function fetchGameData(gamePk) {
   const stars = ROLE_DEFS.map(({ key, role }) => {
     const p = decisions[key];
     if (!p) return null;
-    const team = homePitchers.has(p.id) ? homeAbbr : awayAbbr;
-    return { role, name: p.fullName || "", team, headshot: headshotUrl(p.id), stats: [] };
+    const side = homePitchers.has(p.id) ? "home" : "away";
+    const team = side === "home" ? homeAbbr : awayAbbr;
+    return { role, name: p.fullName || "", team, headshot: headshotUrl(p.id), stats: pitchingLine(p.id, side) };
   }).filter(Boolean);
 
   return { score, innings, totals: scoreTotals, scoringPlays, teamStats, stars };
