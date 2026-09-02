@@ -4,8 +4,12 @@
 // as: /.netlify/functions/nba-game?date=YYYY-MM-DD&home=BOS&away=TOR
 // "home"/"away" are our own NBA_TEAMS abbreviations (see other-sports/js/app.js).
 //
-// stats.nba.com 403s/500s without a browser-shaped request — it wants a
-// Referer/Origin from nba.com and a couple of custom headers, not just a UA.
+// stats.nba.com wants a browser-shaped Referer/Origin plus a couple of
+// custom headers, not just a UA — but even with those, requests from
+// Netlify's production IPs appear to hang rather than reject (confirmed via
+// isolated testing: no clean 403 like ESPN gives, just a stalled connection
+// that eventually 502s once Netlify's own function timeout kicks in). The
+// fetchWithTimeout below at least fails fast instead of hanging ~26s.
 
 const HEADERS = {
   "Content-Type": "application/json",
@@ -30,9 +34,23 @@ function mmddyyyy(iso) {
   return `${m}/${d}/${y}`;
 }
 
+// stats.nba.com can silently hang (rather than reject) requests from cloud
+// IPs, which would otherwise stall the whole function until Netlify's own
+// execution limit kills it (~26s, a bad wait for a user who just clicked a
+// row). Fail fast instead so the frontend can show a clean error quickly.
+async function fetchWithTimeout(url, ms = 7000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { headers: NBA_FETCH_HEADERS, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function findGameId(date, homeAbbr, awayAbbr) {
   const url = `https://stats.nba.com/stats/leaguegamefinder?LeagueID=00&DateFrom=${mmddyyyy(date)}&DateTo=${mmddyyyy(date)}`;
-  const r = await fetch(url, { headers: NBA_FETCH_HEADERS });
+  const r = await fetchWithTimeout(url);
   if (!r.ok) return null;
   const data = await r.json();
   const rs = data.resultSets?.[0];
@@ -58,9 +76,9 @@ function headshotUrl(personId) {
 
 async function fetchGameData(gameId, homeAbbr, awayAbbr) {
   const [summaryRes, boxRes, pbpRes] = await Promise.all([
-    fetch(`https://stats.nba.com/stats/boxscoresummaryv2?GameID=${gameId}`, { headers: NBA_FETCH_HEADERS }),
-    fetch(`https://stats.nba.com/stats/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=10&StartRange=0&EndRange=0&RangeType=0`, { headers: NBA_FETCH_HEADERS }),
-    fetch(`https://stats.nba.com/stats/playbyplayv3?GameID=${gameId}&StartPeriod=0&EndPeriod=10`, { headers: NBA_FETCH_HEADERS }),
+    fetchWithTimeout(`https://stats.nba.com/stats/boxscoresummaryv2?GameID=${gameId}`),
+    fetchWithTimeout(`https://stats.nba.com/stats/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=10&StartRange=0&EndRange=0&RangeType=0`),
+    fetchWithTimeout(`https://stats.nba.com/stats/playbyplayv3?GameID=${gameId}&StartPeriod=0&EndPeriod=10`),
   ]);
   if (!summaryRes.ok) throw new Error(`NBA Stats API error: ${summaryRes.status}`);
   const summary = await summaryRes.json();
@@ -158,6 +176,7 @@ exports.handler = async (event) => {
     const data = await fetchGameData(gameId, home.toUpperCase(), away.toUpperCase());
     return ok({ gameId, ...data });
   } catch (e) {
+    if (e.name === "AbortError") return err(504, "stats.nba.com didn't respond in time.");
     return err(500, e.message);
   }
 };
