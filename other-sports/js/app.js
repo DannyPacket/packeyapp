@@ -529,7 +529,7 @@ function renderMlbDetail(panel, data, g) {
           ${buildMlbTeamStats(teamStats, score)}
         </div>
         <div class="mlb-section">
-          <div class="mlb-section-title">Stars of the Game</div>
+          <div class="mlb-section-title">Player of the Game</div>
           ${buildMlbStars(stars)}
         </div>
       </div>
@@ -568,25 +568,34 @@ function buildMlbTeamStats(teamStats, score) {
   </table>`;
 }
 
+function mlbStarCardHtml(st) {
+  const statLine = (st.stats || []).map((s) => `${s.label}: ${s.value}`).join(" · ");
+  const headshot = st.headshot
+    ? `<img src="${st.headshot}" class="mlb-star-headshot" alt="${st.name}" onerror="this.style.display='none'">`
+    : "";
+  return `<div class="mlb-star-card">
+    <div class="mlb-star-card-body">
+      <div>
+        <div class="mlb-star-rank">${st.role}</div>
+        <div class="mlb-star-name">${st.name || "—"}</div>
+        <div class="mlb-star-meta">${st.team || ""}</div>
+        ${statLine ? `<div class="mlb-star-stat">${statLine}</div>` : ""}
+      </div>
+      ${headshot}
+    </div>
+  </div>`;
+}
+
 function buildMlbStars(stars) {
   if (!stars || !stars.length) return `<p class="mlb-empty">No stars data available.</p>`;
-  return `<div class="mlb-stars-col">${stars.map((st) => {
-    const statLine = (st.stats || []).map((s) => `${s.label}: ${s.value}`).join(" · ");
-    const headshot = st.headshot
-      ? `<img src="${st.headshot}" class="mlb-star-headshot" alt="${st.name}" onerror="this.style.display='none'">`
-      : "";
-    return `<div class="mlb-star-card">
-      <div class="mlb-star-card-body">
-        <div>
-          <div class="mlb-star-rank">${st.role}</div>
-          <div class="mlb-star-name">${st.name || "—"}</div>
-          <div class="mlb-star-meta">${st.team || ""}</div>
-          ${statLine ? `<div class="mlb-star-stat">${statLine}</div>` : ""}
-        </div>
-        ${headshot}
-      </div>
-    </div>`;
-  }).join("")}</div>`;
+  // The winning pitcher (first, per ROLE_DEFS order in mlb-game.js) stands in
+  // for "Player of the Game" since MLB Stats API doesn't hand us a formal
+  // award — the loss/save decisions round out a short "Top Performers" list.
+  const [potm, ...rest] = stars;
+  const restHtml = rest.length
+    ? `<div class="mlb-top-performers-label">Top Performers</div>${rest.map(mlbStarCardHtml).join("")}`
+    : "";
+  return `<div class="mlb-stars-col">${mlbStarCardHtml(potm)}${restHtml}</div>`;
 }
 
 // ── MAP ───────────────────────────────────────────────────────
