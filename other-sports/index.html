@@ -82,9 +82,35 @@
          TAB: BASKETBALL
     ══════════════════════════════════════════════════════ -->
     <div id="tab-basketball" class="tab-panel">
-      <div class="os-coming-soon">
-        <div class="os-coming-soon-icon">🏀</div>
-        <p>Basketball games are coming soon.</p>
+
+      <div id="bk-filters"></div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-card-num" id="bk-gp">—</div><div class="stat-card-label">Games Attended</div></div>
+        <div class="stat-card"><div class="stat-card-num" id="bk-home-score">—</div><div class="stat-card-label">Home Score (Total)</div></div>
+        <div class="stat-card"><div class="stat-card-num" id="bk-away-score">—</div><div class="stat-card-label">Away Score (Total)</div></div>
+      </div>
+
+      <div class="section-heading">Arenas <span class="section-hint">— lit-up arenas are ones you've visited · click an arena for details</span></div>
+      <div id="bk-map" class="os-map"></div>
+
+      <div class="section-heading" id="bk-table-heading">All Games</div>
+      <div class="table-wrap">
+        <table id="bk-table" class="entries-table">
+          <thead>
+            <tr>
+              <th data-sort="season">Season</th>
+              <th data-sort="gameType">Game Type</th>
+              <th data-sort="date">Date</th>
+              <th data-sort="homeTeam">Home Team</th>
+              <th data-sort="awayTeam">Away Team</th>
+              <th data-sort="score">Score</th>
+              <th data-sort="guest">Guest</th>
+              <th data-sort="notes">Notes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
 

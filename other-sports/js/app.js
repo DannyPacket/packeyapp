@@ -114,6 +114,9 @@ document.addEventListener("DOMContentLoaded", () => {
   attachSortListeners();
   setupFilterDelegation();
   loadBaseball();
+  attachSortListenersBk();
+  setupBkFilterDelegation();
+  loadBasketball();
 });
 
 function setupTabs() {
@@ -125,6 +128,9 @@ function setupTabs() {
       document.getElementById(btn.dataset.tab).classList.add("active");
       if (btn.dataset.tab === "tab-baseball" && mapInstance) {
         setTimeout(() => mapInstance.invalidateSize(), 50);
+      }
+      if (btn.dataset.tab === "tab-basketball" && bkMapInstance) {
+        setTimeout(() => bkMapInstance.invalidateSize(), 50);
       }
     });
   });
@@ -620,14 +626,14 @@ function buildMlbPitchingDecisions(decisions) {
 }
 
 // ── MAP ───────────────────────────────────────────────────────
-function createVenueIcon(abbr, visited, selected) {
+function createVenueIcon(abbr, visited, selected, logoFn = logoSrcForAbbr) {
   let cls = "venue-logo-marker";
   if (visited) cls += " venue-logo-visited";
   if (!visited && !selected) cls += " venue-logo-dim";
   if (selected) cls += " venue-logo-selected";
   return L.divIcon({
     className: "logo-icon-wrap",
-    html: `<div class="${cls}"><img src="${logoSrcForAbbr(abbr)}" alt="${abbr}" onerror="this.style.display='none'"></div>`,
+    html: `<div class="${cls}"><img src="${logoFn(abbr)}" alt="${abbr}" onerror="this.style.display='none'"></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
     tooltipAnchor: [0, -20],
@@ -703,5 +709,566 @@ function renderMap(games) {
     });
 
     mapMarkers.push(marker);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// BASKETBALL — mirrors the baseball section above (state, filters,
+// map, table, box-score panel), kept fully separate (own globals,
+// own dd-wrap data attributes) so nothing here can cross-contaminate
+// the baseball tab's state.
+// ════════════════════════════════════════════════════════════
+
+// ── NBA TEAMS / ARENAS ──────────────────────────────────────────
+const NBA_TEAMS = [
+  { abbr: "ATL", full: "Atlanta Hawks",          arena: "State Farm Arena",        lat: 33.7573, lon: -84.3963  },
+  { abbr: "BOS", full: "Boston Celtics",         arena: "TD Garden",               lat: 42.3662, lon: -71.0621  },
+  { abbr: "BKN", full: "Brooklyn Nets",          arena: "Barclays Center",         lat: 40.6826, lon: -73.9754, espn: "bkn" },
+  { abbr: "CHA", full: "Charlotte Hornets",      arena: "Spectrum Center",         lat: 35.2251, lon: -80.8392  },
+  { abbr: "CHI", full: "Chicago Bulls",          arena: "United Center",           lat: 41.8807, lon: -87.6742  },
+  { abbr: "CLE", full: "Cleveland Cavaliers",    arena: "Rocket Arena",            lat: 41.4965, lon: -81.6882  },
+  { abbr: "DAL", full: "Dallas Mavericks",       arena: "American Airlines Center",lat: 32.7905, lon: -96.8103  },
+  { abbr: "DEN", full: "Denver Nuggets",         arena: "Ball Arena",              lat: 39.7486, lon: -105.0077 },
+  { abbr: "DET", full: "Detroit Pistons",        arena: "Little Caesars Arena",    lat: 42.3411, lon: -83.0553  },
+  { abbr: "GSW", full: "Golden State Warriors",  arena: "Chase Center",            lat: 37.7680, lon: -122.3877, espn: "gs" },
+  { abbr: "HOU", full: "Houston Rockets",        arena: "Toyota Center",           lat: 29.7508, lon: -95.3621  },
+  { abbr: "IND", full: "Indiana Pacers",         arena: "Gainbridge Fieldhouse",   lat: 39.7640, lon: -86.1555  },
+  { abbr: "LAC", full: "LA Clippers",            arena: "Intuit Dome",             lat: 33.9535, lon: -118.3413 },
+  { abbr: "LAL", full: "Los Angeles Lakers",     arena: "Crypto.com Arena",        lat: 34.0430, lon: -118.2673 },
+  { abbr: "MEM", full: "Memphis Grizzlies",      arena: "FedExForum",              lat: 35.1382, lon: -90.0505  },
+  { abbr: "MIA", full: "Miami Heat",             arena: "Kaseya Center",           lat: 25.7814, lon: -80.1870  },
+  { abbr: "MIL", full: "Milwaukee Bucks",        arena: "Fiserv Forum",            lat: 43.0451, lon: -87.9174  },
+  { abbr: "MIN", full: "Minnesota Timberwolves", arena: "Target Center",           lat: 44.9795, lon: -93.2761  },
+  { abbr: "NOP", full: "New Orleans Pelicans",   arena: "Smoothie King Center",    lat: 29.9490, lon: -90.0821, espn: "no" },
+  { abbr: "NYK", full: "New York Knicks",        arena: "Madison Square Garden",   lat: 40.7505, lon: -73.9934, espn: "ny" },
+  { abbr: "OKC", full: "Oklahoma City Thunder",  arena: "Paycom Center",           lat: 35.4634, lon: -97.5151  },
+  { abbr: "ORL", full: "Orlando Magic",          arena: "Kia Center",              lat: 28.5392, lon: -81.3839  },
+  { abbr: "PHI", full: "Philadelphia 76ers",     arena: "Wells Fargo Center",      lat: 39.9012, lon: -75.1720  },
+  { abbr: "PHX", full: "Phoenix Suns",           arena: "Footprint Center",        lat: 33.4457, lon: -112.0712 },
+  { abbr: "POR", full: "Portland Trail Blazers", arena: "Moda Center",             lat: 45.5316, lon: -122.6668 },
+  { abbr: "SAC", full: "Sacramento Kings",       arena: "Golden 1 Center",         lat: 38.5802, lon: -121.4997 },
+  { abbr: "SAS", full: "San Antonio Spurs",      arena: "Frost Bank Center",       lat: 29.4269, lon: -98.4375, espn: "sa" },
+  { abbr: "TOR", full: "Toronto Raptors",        arena: "Scotiabank Arena",        lat: 43.6435, lon: -79.3791  },
+  { abbr: "UTA", full: "Utah Jazz",              arena: "Delta Center",            lat: 40.7683, lon: -111.9011, espn: "utah" },
+  { abbr: "WAS", full: "Washington Wizards",     arena: "Capital One Arena",       lat: 38.8981, lon: -77.0209, espn: "wsh" },
+];
+const NBA_TEAMS_BY_ABBR = Object.fromEntries(NBA_TEAMS.map((t) => [t.abbr, t]));
+
+const NBA_NAME_TO_ABBR = {
+  "Atlanta": "ATL", "Hawks": "ATL", "Atlanta Hawks": "ATL",
+  "Boston": "BOS", "Celtics": "BOS", "Boston Celtics": "BOS",
+  "Brooklyn": "BKN", "Nets": "BKN", "Brooklyn Nets": "BKN",
+  "Charlotte": "CHA", "Hornets": "CHA", "Charlotte Hornets": "CHA",
+  "Chicago": "CHI", "Bulls": "CHI", "Chicago Bulls": "CHI",
+  "Cleveland": "CLE", "Cavaliers": "CLE", "Cavs": "CLE", "Cleveland Cavaliers": "CLE",
+  "Dallas": "DAL", "Mavericks": "DAL", "Mavs": "DAL", "Dallas Mavericks": "DAL",
+  "Denver": "DEN", "Nuggets": "DEN", "Denver Nuggets": "DEN",
+  "Detroit": "DET", "Pistons": "DET", "Detroit Pistons": "DET",
+  "Golden State": "GSW", "Warriors": "GSW", "Golden State Warriors": "GSW",
+  "Houston": "HOU", "Rockets": "HOU", "Houston Rockets": "HOU",
+  "Indiana": "IND", "Pacers": "IND", "Indiana Pacers": "IND",
+  "Clippers": "LAC", "LA Clippers": "LAC", "Los Angeles Clippers": "LAC",
+  "Lakers": "LAL", "LA Lakers": "LAL", "Los Angeles Lakers": "LAL",
+  "Los Angeles": "LAL", "LA": "LAL", // default bare "Los Angeles"/"LA" to the Lakers
+  "Memphis": "MEM", "Grizzlies": "MEM", "Memphis Grizzlies": "MEM",
+  "Miami": "MIA", "Heat": "MIA", "Miami Heat": "MIA",
+  "Milwaukee": "MIL", "Bucks": "MIL", "Milwaukee Bucks": "MIL",
+  "Minnesota": "MIN", "Timberwolves": "MIN", "Wolves": "MIN", "Minnesota Timberwolves": "MIN",
+  "New Orleans": "NOP", "Pelicans": "NOP", "New Orleans Pelicans": "NOP",
+  "New York": "NYK", "Knicks": "NYK", "New York Knicks": "NYK",
+  "Oklahoma City": "OKC", "Thunder": "OKC", "Oklahoma City Thunder": "OKC",
+  "Orlando": "ORL", "Magic": "ORL", "Orlando Magic": "ORL",
+  "Philadelphia": "PHI", "76ers": "PHI", "Sixers": "PHI", "Philadelphia 76ers": "PHI",
+  "Phoenix": "PHX", "Suns": "PHX", "Phoenix Suns": "PHX",
+  "Portland": "POR", "Trail Blazers": "POR", "Blazers": "POR", "Portland Trail Blazers": "POR",
+  "Sacramento": "SAC", "Kings": "SAC", "Sacramento Kings": "SAC",
+  "San Antonio": "SAS", "Spurs": "SAS", "San Antonio Spurs": "SAS",
+  "Toronto": "TOR", "Raptors": "TOR", "Toronto Raptors": "TOR",
+  "Utah": "UTA", "Jazz": "UTA", "Utah Jazz": "UTA",
+  "Washington": "WAS", "Wizards": "WAS", "Washington Wizards": "WAS",
+};
+
+function resolveAbbrBk(name) {
+  return NBA_NAME_TO_ABBR[(name || "").trim()] || null;
+}
+
+function logoSrcForAbbrBk(abbr) {
+  const team = NBA_TEAMS_BY_ABBR[abbr];
+  const slug = team?.espn || (abbr || "").toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nba/500/${slug}.png`;
+}
+
+function bkLogo(name) {
+  const abbr = resolveAbbrBk(name);
+  if (!abbr) return "";
+  return `<img src="${logoSrcForAbbrBk(abbr)}" alt="${name}" class="team-logo" onerror="this.style.display='none'">`;
+}
+function bkLogoNoName(abbr) {
+  return `<img src="${logoSrcForAbbrBk(abbr)}" class="team-logo" onerror="this.style.display='none'">`;
+}
+
+// ── STATE ─────────────────────────────────────────────────────
+let ALL_BK_GAMES = [];
+let bkSortKey = "date";
+let bkSortDir = "desc";
+let bkSelectedAbbr = null;
+let bkMapInstance = null;
+let bkMapMarkers = [];
+let bkOpenDropdown = null; // null | "season" | "home" | "away"
+let bkActiveFilters = { gameType: "All", season: [], homeTeam: [], awayTeam: [] };
+let expandBkRow = null;
+const bkGameCache = {}; // "YYYY-MM-DD|home|away" → normalised NBA Stats API game data
+
+async function loadBasketball() {
+  try {
+    const res = await fetch("/.netlify/functions/fetch-sheet?category=basketball");
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "Failed to load");
+
+    ALL_BK_GAMES = (data.entries || [])
+      .map((r) => ({
+        season: (r["Season"] || "").trim(),
+        gameType: (r["Pre/Regular/Post"] || "").trim(),
+        dateRaw: (r["Date"] || "").trim(),
+        homeTeamRaw: (r["Home Team"] || "").trim(),
+        awayTeamRaw: (r["Away Team"] || "").trim(),
+        homeAbbr: resolveAbbrBk(r["Home Team"]),
+        awayAbbr: resolveAbbrBk(r["Away Team"]),
+        homeRuns: parseInt(r["Home Team Runs"], 10) || 0,
+        awayRuns: parseInt(r["Away Team Runs"], 10) || 0,
+        guest: (r["Guest"] || "").trim(),
+        notes: (r["Notes"] || "").trim(),
+      }))
+      .filter((g) => g.dateRaw && g.homeTeamRaw);
+
+    renderAllBk();
+  } catch (err) {
+    const errorEl = document.getElementById("os-error");
+    errorEl.innerHTML = `<div class="os-error-msg">⚠️ Could not load basketball data: ${err.message}</div>`;
+    errorEl.style.display = "block";
+  }
+}
+
+function sortedGamesBk(games) {
+  const comparators = {
+    season: byField("season", bkSortDir),
+    gameType: byField("gameType", bkSortDir),
+    date: byDate(bkSortDir),
+    homeTeam: byField("homeTeamRaw", bkSortDir),
+    awayTeam: byField("awayTeamRaw", bkSortDir),
+    score: byNumber("homeRuns", bkSortDir),
+    guest: byField("guest", bkSortDir),
+    notes: byField("notes", bkSortDir),
+  };
+  return [...games].sort(comparators[bkSortKey] || byDate(bkSortDir));
+}
+
+function attachSortListenersBk() {
+  document.querySelectorAll("#bk-table th[data-sort]").forEach((th) => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (bkSortKey === key) bkSortDir = bkSortDir === "asc" ? "desc" : "asc";
+      else { bkSortKey = key; bkSortDir = key === "date" ? "desc" : "asc"; }
+      renderAllBk();
+    });
+  });
+}
+
+function updateSortIndicatorsBk() {
+  document.querySelectorAll("#bk-table th[data-sort]").forEach((th) => {
+    const active = th.dataset.sort === bkSortKey;
+    th.classList.toggle("sorted", active);
+    th.querySelector(".sort-arrow")?.remove();
+    if (active) {
+      const arrow = document.createElement("span");
+      arrow.className = "sort-arrow";
+      arrow.textContent = bkSortDir === "asc" ? " ▲" : " ▼";
+      th.appendChild(arrow);
+    }
+  });
+}
+
+// ── FILTERS ───────────────────────────────────────────────────
+function uniqueSeasonsBk() {
+  return [...new Set(ALL_BK_GAMES.filter((g) => g.season).map((g) => g.season))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+}
+function uniqueHomeTeamsBk() {
+  const abbrs = new Set(ALL_BK_GAMES.map((g) => g.homeAbbr).filter(Boolean));
+  return [...abbrs].sort((a, b) => (NBA_TEAMS_BY_ABBR[a]?.full || a).localeCompare(NBA_TEAMS_BY_ABBR[b]?.full || b));
+}
+function uniqueAwayTeamsBk() {
+  const abbrs = new Set(ALL_BK_GAMES.map((g) => g.awayAbbr).filter(Boolean));
+  return [...abbrs].sort((a, b) => (NBA_TEAMS_BY_ABBR[a]?.full || a).localeCompare(NBA_TEAMS_BY_ABBR[b]?.full || b));
+}
+
+function filteredGamesBk() {
+  return ALL_BK_GAMES.filter((g) => {
+    if (bkActiveFilters.gameType !== "All" && g.gameType !== bkActiveFilters.gameType) return false;
+    if (bkActiveFilters.season.length && !bkActiveFilters.season.includes(g.season)) return false;
+    if (bkActiveFilters.homeTeam.length && !bkActiveFilters.homeTeam.includes(g.homeAbbr)) return false;
+    if (bkActiveFilters.awayTeam.length && !bkActiveFilters.awayTeam.includes(g.awayAbbr)) return false;
+    return true;
+  });
+}
+
+function bkDdChecklist(kind, options, selected, labelOf, withLogo) {
+  const noun = kind === "season" ? "Seasons" : "Teams";
+  const allItem = `<label class="dd-item dd-all">
+      <input type="checkbox" class="dd-check" data-bk-dd-kind="${kind}" value="__all__"${selected.length === 0 ? " checked" : ""}>
+      <span>All ${noun}</span>
+    </label><div class="dd-divider"></div>`;
+  const items = options.map((v) => `<label class="dd-item">
+      <input type="checkbox" class="dd-check" data-bk-dd-kind="${kind}" value="${v}"${selected.includes(v) ? " checked" : ""}>
+      ${withLogo ? bkLogoNoName(v) : ""}
+      <span>${labelOf(v)}</span>
+    </label>`).join("");
+  return allItem + items;
+}
+
+function bkFiltersHTML() {
+  const gt = bkActiveFilters.gameType;
+  const seasons = uniqueSeasonsBk();
+  const homeTeams = uniqueHomeTeamsBk();
+  const awayTeams = uniqueAwayTeamsBk();
+
+  const seasonSel = bkActiveFilters.season, homeSel = bkActiveFilters.homeTeam, awaySel = bkActiveFilters.awayTeam;
+  const seasonLabel = seasonSel.length === 0 ? "All Seasons" : seasonSel.length === 1 ? seasonSel[0] : `${seasonSel.length} Seasons`;
+  const homeLabel = homeSel.length === 0 ? "All Teams" : homeSel.length === 1 ? (NBA_TEAMS_BY_ABBR[homeSel[0]]?.full || homeSel[0]) : `${homeSel.length} Teams`;
+  const awayLabel = awaySel.length === 0 ? "All Teams" : awaySel.length === 1 ? (NBA_TEAMS_BY_ABBR[awaySel[0]]?.full || awaySel[0]) : `${awaySel.length} Teams`;
+
+  return `<div class="filters">
+    <span class="filter-label">Game Type:</span>
+    ${GAME_TYPE_OPTIONS.map((opt) => `<button class="pill${gt === opt.value ? " active" : ""}" data-bk-filter="${opt.value}" data-bk-group="gameType">${opt.label}</button>`).join("")}
+    <span class="filter-sep"></span>
+    <span class="filter-label">Season:</span>
+    <div class="dd-wrap${bkOpenDropdown === "season" ? " dd-open" : ""}" data-bk-dd="season">
+      <button class="pill dd-trigger${seasonSel.length ? " active" : ""}">${seasonLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${bkOpenDropdown === "season" ? " open" : ""}">${bkDdChecklist("season", seasons, seasonSel, (s) => s, false)}</div>
+    </div>
+    <span class="filter-sep"></span>
+    <span class="filter-label">Home Team:</span>
+    <div class="dd-wrap${bkOpenDropdown === "home" ? " dd-open" : ""}" data-bk-dd="home">
+      <button class="pill dd-trigger${homeSel.length ? " active" : ""}">${homeLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${bkOpenDropdown === "home" ? " open" : ""}">${bkDdChecklist("home", homeTeams, homeSel, (a) => NBA_TEAMS_BY_ABBR[a]?.full || a, true)}</div>
+    </div>
+    <span class="filter-sep"></span>
+    <span class="filter-label">Away Team:</span>
+    <div class="dd-wrap${bkOpenDropdown === "away" ? " dd-open" : ""}" data-bk-dd="away">
+      <button class="pill dd-trigger${awaySel.length ? " active" : ""}">${awayLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${bkOpenDropdown === "away" ? " open" : ""}">${bkDdChecklist("away", awayTeams, awaySel, (a) => NBA_TEAMS_BY_ABBR[a]?.full || a, true)}</div>
+    </div>
+  </div>`;
+}
+
+function setupBkFilterDelegation() {
+  document.addEventListener("click", (e) => {
+    const pill = e.target.closest(".pill[data-bk-filter]");
+    if (!pill) return;
+    const { bkGroup: group, bkFilter: val } = pill.dataset;
+    if (!group || !val) return;
+    bkActiveFilters[group] = val;
+    renderAllBk();
+  });
+
+  document.addEventListener("click", (e) => {
+    const trigger = e.target.closest("#tab-basketball .dd-trigger");
+    if (trigger) {
+      const kind = trigger.closest(".dd-wrap")?.dataset.bkDd;
+      bkOpenDropdown = bkOpenDropdown === kind ? null : kind;
+      renderAllBk();
+      return;
+    }
+    if (!e.target.closest("#tab-basketball .dd-wrap") && bkOpenDropdown) {
+      bkOpenDropdown = null;
+      renderAllBk();
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    const cb = e.target.closest(".dd-check[data-bk-dd-kind]");
+    if (!cb) return;
+    const kind = cb.dataset.bkDdKind;
+    const field = kind === "season" ? "season" : kind === "home" ? "homeTeam" : "awayTeam";
+    const val = cb.value;
+    if (val === "__all__") {
+      bkActiveFilters[field] = [];
+    } else {
+      const idx = bkActiveFilters[field].indexOf(val);
+      if (idx === -1) bkActiveFilters[field].push(val);
+      else bkActiveFilters[field].splice(idx, 1);
+    }
+    renderAllBk();
+  });
+}
+
+// ── MASTER RENDER ─────────────────────────────────────────────
+function renderAllBk() {
+  const games = filteredGamesBk();
+  document.getElementById("bk-filters").innerHTML = bkFiltersHTML();
+  renderStatsBk(games);
+  renderTableBk(games);
+  renderMapBk(games);
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function renderStatsBk(games) {
+  const gp = games.length;
+  const homeTotal = games.reduce((s, g) => s + g.homeRuns, 0);
+  const awayTotal = games.reduce((s, g) => s + g.awayRuns, 0);
+  document.getElementById("bk-gp").textContent = gp;
+  document.getElementById("bk-home-score").textContent = homeTotal;
+  document.getElementById("bk-away-score").textContent = awayTotal;
+}
+
+// ── TABLE ─────────────────────────────────────────────────────
+function renderTableBk(games) {
+  const heading = document.getElementById("bk-table-heading");
+  const rows = bkSelectedAbbr ? games.filter((g) => g.homeAbbr === bkSelectedAbbr) : games;
+
+  if (bkSelectedAbbr) {
+    const team = NBA_TEAMS_BY_ABBR[bkSelectedAbbr];
+    heading.innerHTML = `Games at ${team.arena} <span class="section-hint">— ${team.full}</span> <button class="os-clear-pill" id="bk-clear">Clear ×</button>`;
+    document.getElementById("bk-clear").addEventListener("click", () => {
+      bkSelectedAbbr = null;
+      bkMapMarkers.forEach((m) => m.closePopup());
+      renderAllBk();
+    });
+  } else {
+    heading.textContent = "All Games";
+  }
+
+  updateSortIndicatorsBk();
+
+  const sorted = sortedGamesBk(rows);
+  const tbody = document.querySelector("#bk-table tbody");
+  tbody.innerHTML = sorted.length
+    ? sorted.map((g, i) => {
+        const isOpen = expandBkRow === i;
+        return `
+        <tr class="bb-row${isOpen ? " row-open" : ""}" data-bk-i="${i}" title="Click to view box score">
+          <td>${g.season || "—"}</td>
+          <td>${g.gameType || "—"}</td>
+          <td><span class="bb-date-btn">${fmtDateShort(g.dateRaw)}</span> <span class="chevron">${isOpen ? "▴" : "▾"}</span></td>
+          <td>${bkLogo(g.homeTeamRaw)}<span>${g.homeTeamRaw}</span></td>
+          <td>${bkLogo(g.awayTeamRaw)}<span>${g.awayTeamRaw}</span></td>
+          <td>${g.homeRuns}–${g.awayRuns}</td>
+          <td>${g.guest || "—"}</td>
+          <td>${g.notes || "—"}</td>
+        </tr>
+        ${isOpen ? `<tr class="bb-expand-tr"><td colspan="8" style="padding:0"><div class="mlb-panel" id="bk-panel-${i}"><div class="mlb-loading">Loading box score…</div></div></td></tr>` : ""}`;
+      }).join("")
+    : `<tr><td class="no-results" colspan="8">No games found.</td></tr>`;
+
+  tbody.querySelectorAll(".bb-row").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const i = +tr.dataset.bkI;
+      expandBkRow = expandBkRow === i ? null : i;
+      renderTableBk(games);
+    });
+  });
+
+  if (expandBkRow !== null && expandBkRow < sorted.length) {
+    loadNbaDetailForGame(sorted[expandBkRow], `bk-panel-${expandBkRow}`);
+  }
+}
+
+// ── NBA BOX SCORE DETAIL ──────────────────────────────────────
+async function fetchNbaGame(g) {
+  const dateStr = dateToIso(g.dateRaw);
+  if (!dateStr || !g.homeAbbr || !g.awayAbbr) return null;
+  const cacheKey = `${dateStr}|${g.homeAbbr}|${g.awayAbbr}`;
+  if (bkGameCache[cacheKey]) return bkGameCache[cacheKey];
+
+  try {
+    const res = await fetch(`/.netlify/functions/nba-game?date=${dateStr}&home=${g.homeAbbr}&away=${g.awayAbbr}`);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Proxy error ${res.status}`);
+    bkGameCache[cacheKey] = data;
+    return data;
+  } catch (err) {
+    console.error("[nba-game] failed:", err);
+    return null;
+  }
+}
+
+async function loadNbaDetailForGame(g, panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  if (!g.homeAbbr || !g.awayAbbr) {
+    panel.innerHTML = `<div class="mlb-error">Can't look up a box score — one of the team names isn't recognized. Try renaming it to the team's full name in the sheet.</div>`;
+    return;
+  }
+
+  const data = await fetchNbaGame(g);
+  const p = document.getElementById(panelId);
+  if (!p) return;
+
+  if (!data) {
+    p.innerHTML = `<div class="mlb-error">No box score found for ${fmtDateShort(g.dateRaw)}.</div>`;
+    return;
+  }
+  renderNbaDetail(p, data, g);
+}
+
+function renderNbaDetail(panel, data, g) {
+  const { score, innings, totals, scoringPlays, teamStats, playerOfGame, topPerformers, gameId } = data;
+  const gamedayUrl = gameId ? `https://www.nba.com/game/${data.score.awayAbbr.toLowerCase()}-vs-${data.score.homeAbbr.toLowerCase()}-${gameId}` : "https://www.nba.com/games";
+
+  const inningHeaderCells = innings.map((p) => `<th>${p.label}</th>`).join("");
+  const awayInningCells = innings.map((p) => `<td>${p.away}</td>`).join("");
+  const homeInningCells = innings.map((p) => `<td>${p.home}</td>`).join("");
+
+  const linescoreHtml = `
+    <div class="table-wrap">
+      <table class="linescore-table">
+        <thead><tr><th></th>${inningHeaderCells}<th>Final</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${bkLogoNoName(score.awayAbbr)}<span>${score.awayAbbr}</span></td>
+            ${awayInningCells}
+            <td class="linescore-total">${totals.awayR}</td>
+          </tr>
+          <tr>
+            <td>${bkLogoNoName(score.homeAbbr)}<span>${score.homeAbbr}</span></td>
+            ${homeInningCells}
+            <td class="linescore-total">${totals.homeR}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  panel.innerHTML = `
+    <div class="mlb-detail">
+      <div class="mlb-header">
+        <div class="mlb-status">${score.status}</div>
+        ${linescoreHtml}
+        <a href="${gamedayUrl}" target="_blank" class="mlb-ext-link">Full box score on NBA.com ↗</a>
+      </div>
+
+      <div class="mlb-two-col">
+        <div class="mlb-section">
+          <div class="mlb-section-title">Scoring (3-Pointers)</div>
+          ${buildBkScoring(scoringPlays)}
+        </div>
+        <div class="mlb-section">
+          <div class="mlb-section-title">Team Stats</div>
+          ${buildMlbTeamStats(teamStats, score)}
+        </div>
+        <div class="mlb-section">
+          <div class="mlb-section-title">Player of the Game</div>
+          ${buildBkPotg(playerOfGame, topPerformers)}
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildBkScoring(plays) {
+  if (!plays || !plays.length) return `<p class="mlb-empty">No 3-pointers in this game.</p>`;
+  return `<div class="mlb-scoring-log">${plays.map((p) => `
+    <div class="mlb-score-row">
+      <span class="mlb-score-inning">${p.inning}</span>
+      <span class="mlb-score-team-logo">${p.team ? bkLogoNoName(p.team) : ""}</span>
+      <div class="mlb-score-detail">
+        ${p.tag ? `<span class="mlb-score-tag">${p.tag}</span>` : ""}
+        <div class="mlb-score-text">${p.text}</div>
+        <div class="mlb-score-snap">${p.awayScore}–${p.homeScore}</div>
+      </div>
+    </div>`).join("")}</div>`;
+}
+
+function bkPlayerCardHtml(st) {
+  const headshot = st.headshot
+    ? `<img src="${st.headshot}" class="mlb-star-headshot" alt="${st.name}" onerror="this.style.display='none'">`
+    : "";
+  return `<div class="mlb-star-card">
+    <div class="mlb-star-card-body">
+      <div>
+        <div class="mlb-star-name">${st.name || "—"}${bkLogoNoName(st.team)}</div>
+        ${st.summary ? `<div class="mlb-star-stat">${st.summary}</div>` : ""}
+      </div>
+      ${headshot}
+    </div>
+  </div>`;
+}
+
+function buildBkPotg(playerOfGame, topPerformers) {
+  if (!playerOfGame) return `<p class="mlb-empty">No player of the game data available.</p>`;
+  const potgHtml = bkPlayerCardHtml(playerOfGame);
+  const topHtml = (topPerformers && topPerformers.length)
+    ? `<div class="mlb-top-performers-label">Top Performers</div>${topPerformers.map(bkPlayerCardHtml).join("")}`
+    : "";
+  return `<div class="mlb-stars-col">${potgHtml}${topHtml}</div>`;
+}
+
+// ── MAP ───────────────────────────────────────────────────────
+function renderMapBk(games) {
+  if (!bkMapInstance) {
+    bkMapInstance = L.map("bk-map", { center: [39, -96], zoom: 4, minZoom: 3, maxZoom: 13 });
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "&copy; Esri &copy; OpenStreetMap contributors",
+      maxZoom: 19,
+      maxNativeZoom: 16,
+    }).addTo(bkMapInstance);
+  }
+
+  bkMapMarkers.forEach((m) => m.remove());
+  bkMapMarkers = [];
+
+  NBA_TEAMS.forEach((team) => {
+    const gamesHere = games.filter((g) => g.homeAbbr === team.abbr).sort((a, b) => {
+      const da = parseDateSafe(a.dateRaw), db = parseDateSafe(b.dateRaw);
+      return (db || 0) - (da || 0);
+    });
+    const visited = gamesHere.length > 0;
+    const isSelected = bkSelectedAbbr === team.abbr;
+    const icon = createVenueIcon(team.abbr, visited, isSelected, logoSrcForAbbrBk);
+    const marker = L.marker([team.lat, team.lon], { icon }).addTo(bkMapInstance);
+
+    const wikiUrl = `https://en.wikipedia.org/wiki/${team.wiki || team.arena.replace(/ /g, "_")}`;
+
+    marker.bindTooltip(
+      `<div class="venue-tip-team">${team.full}</div><div class="venue-tip-arena">${team.arena}</div>`,
+      { direction: "top", offset: [0, -20], className: "venue-tooltip" }
+    );
+
+    const gamesHtml = gamesHere.length
+      ? `<div class="bb-popup-games">${gamesHere.map((g) => `
+          <div class="bb-popup-game">
+            <div class="bb-popup-date">${fmtDateShort(g.dateRaw)}</div>
+            <div class="bb-popup-score-line">${g.homeTeamRaw} ${g.homeRuns} – ${g.awayTeamRaw} ${g.awayRuns}</div>
+          </div>`).join("")}</div>`
+      : `<div class="bb-popup-games"><div class="bb-popup-game dim">No games attended here yet.</div></div>`;
+
+    marker.bindPopup(
+      `<div class="bb-popup">
+        <div class="bb-popup-main">
+          <div class="bb-popup-info">
+            <div class="bb-popup-team">${team.full}</div>
+            <div class="bb-popup-arena"><a href="${wikiUrl}" target="_blank" rel="noopener">${team.arena} ↗</a></div>
+          </div>
+          <img src="${logoSrcForAbbrBk(team.abbr)}" class="bb-popup-logo" alt="${team.full}" onerror="this.style.display='none'">
+        </div>
+        ${gamesHtml}
+      </div>`,
+      { className: "bb-popup-wrap", maxWidth: 300, offset: [0, -4] }
+    );
+
+    marker.on("popupopen", () => {
+      bkMapMarkers.forEach((m) => m.getElement()?.querySelector(".venue-logo-marker")?.classList.remove("venue-logo-selected"));
+      marker.getElement()?.querySelector(".venue-logo-marker")?.classList.add("venue-logo-selected");
+      bkSelectedAbbr = team.abbr;
+      renderTableBk(filteredGamesBk());
+    });
+
+    marker.on("popupclose", () => {
+      marker.getElement()?.querySelector(".venue-logo-marker")?.classList.remove("venue-logo-selected");
+      if (bkSelectedAbbr === team.abbr) {
+        bkSelectedAbbr = null;
+        renderTableBk(filteredGamesBk());
+      }
+    });
+
+    bkMapMarkers.push(marker);
   });
 }
