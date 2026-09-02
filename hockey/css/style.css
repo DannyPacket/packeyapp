@@ -419,6 +419,7 @@
   display: block;
 }
 .hockey-app .arena-logo-marker:hover { transform: scale(1.2); }
+.hockey-app .arena-logo-visited { background: rgba(255,255,255,0.85); }
 .hockey-app .arena-logo-dim img { filter: grayscale(1) opacity(0.35); }
 .hockey-app .arena-logo-selected {
   border-color: var(--gold) !important;

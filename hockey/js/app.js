@@ -1287,6 +1287,7 @@ function createLogoIcon(abbr, visited, selected) {
   const src = `https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg`;
   const fb  = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${abbr.toLowerCase()}.png&h=40&w=40`;
   let cls   = "arena-logo-marker";
+  if (visited)               cls += " arena-logo-visited";
   if (!visited && !selected) cls += " arena-logo-dim";
   if (selected)              cls += " arena-logo-selected";
   return L.divIcon({

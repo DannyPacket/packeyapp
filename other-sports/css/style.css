@@ -85,7 +85,7 @@
 .os-app .venue-logo-marker:hover { transform: scale(1.2); }
 .os-app .venue-logo-dim { background: rgba(255,255,255,0.45); }
 .os-app .venue-logo-dim img { filter: grayscale(1) opacity(0.5); }
-.os-app .venue-logo-selected { border-color: var(--rust) !important; box-shadow: 0 0 0 2px rgba(224,113,74,0.35), 0 3px 12px rgba(0,0,0,0.6) !important; }
+.os-app .venue-logo-selected { border-color: #FFB81C !important; box-shadow: 0 0 0 2px rgba(255,184,28,0.35), 0 3px 12px rgba(0,0,0,0.6) !important; }
 
 /* Ballpark popup */
 .os-app .bb-popup-wrap .leaflet-popup-content-wrapper { background: #161616 !important; border: 1px solid var(--border) !important; border-radius: 10px !important; color: var(--text) !important; box-shadow: 0 6px 24px rgba(0,0,0,0.7) !important; padding: 0 !important; }
