@@ -149,15 +149,18 @@ async function fetchGameData(gameId, homeAbbr, awayAbbr) {
 }
 
 exports.handler = async (event) => {
-  const { date, home, away } = event.queryStringParameters || {};
+  const { date, home, away, diag } = event.queryStringParameters || {};
   if (!date || !home || !away) return err(400, "date, home, and away are required");
 
   try {
+    const t0 = Date.now();
     const gameId = await findGameId(date, home.toUpperCase(), away.toUpperCase());
+    const t1 = Date.now();
+    if (diag) return ok({ diag: "findGameId only", gameId, ms: t1 - t0 });
     if (!gameId) return err(404, `No NBA game found for ${date} (${away} @ ${home})`);
     const data = await fetchGameData(gameId, home.toUpperCase(), away.toUpperCase());
     return ok({ gameId, ...data });
   } catch (e) {
-    return err(500, e.message);
+    return err(500, e.message + " | " + (e.stack || "").slice(0, 300));
   }
 };
