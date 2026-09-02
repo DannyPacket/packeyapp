@@ -370,11 +370,11 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3rem 0.6rem;
+  padding: 0.35rem 0.6rem;
   border-radius: 6px;
   cursor: pointer;
   font-family: var(--font-d);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   color: var(--text-dim);

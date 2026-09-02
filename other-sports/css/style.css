@@ -33,7 +33,7 @@
 .os-app .stat-card-label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-top: 0.35rem; }
 
 /* ── FILTERS ── */
-.os-app .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center; }
+.os-app .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center; justify-content: center; }
 .os-app .filter-label { font-family: var(--font-d); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
 .os-app .filter-sep { width: 1px; height: 1.2em; background: var(--border); align-self: center; margin: 0 0.25rem; flex-shrink: 0; }
 .os-app .pill { font-family: var(--font-d); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); padding: 0.32rem 0.75rem; border-radius: 999px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }

@@ -236,6 +236,13 @@ function updateSortIndicators() {
 // ── FILTERS ───────────────────────────────────────────────────
 // Home/away team options are only ever the teams that actually appear in the
 // data (not all 30 MLB teams) — same idea as the hockey map's opponent filter.
+// Display labels differ from the sheet's own "Pre/Regular/Post" values.
+const GAME_TYPE_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "Regular", value: "Regular" },
+  { label: "Playoffs", value: "Post" },
+  { label: "Preseason", value: "Pre" },
+];
 function uniqueSeasons() {
   return [...new Set(ALL_GAMES.filter((g) => g.season).map((g) => g.season))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
 }
@@ -288,7 +295,7 @@ function filtersHTML() {
 
   return `<div class="filters">
     <span class="filter-label">Game Type:</span>
-    ${["All", "Pre", "Regular", "Post"].map((v) => `<button class="pill${gt === v ? " active" : ""}" data-filter="${v}" data-group="gameType">${v}</button>`).join("")}
+    ${GAME_TYPE_OPTIONS.map((opt) => `<button class="pill${gt === opt.value ? " active" : ""}" data-filter="${opt.value}" data-group="gameType">${opt.label}</button>`).join("")}
     <span class="filter-sep"></span>
     <span class="filter-label">Season:</span>
     <div class="dd-wrap${openDropdown === "season" ? " dd-open" : ""}" data-dd="season">
