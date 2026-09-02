@@ -106,7 +106,7 @@ let mapMarkers = [];
 let openDropdown = null; // null | "season" | "home" | "away"
 let activeFilters = { gameType: "All", season: [], homeTeam: [], awayTeam: [] };
 let expandBbRow = null; // index into the currently-rendered table rows
-const mlbEspnCache = {}; // "YYYY-MM-DD|home|away" → normalised ESPN game data
+const mlbGameCache = {}; // "YYYY-MM-DD|home|away" → normalised MLB Stats API game data
 
 // ── BOOT ──────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -169,12 +169,10 @@ function parseDateSafe(str) {
   return isNaN(d) ? null : d;
 }
 
-function fmtDateSlash(str) {
+function fmtDateShort(str) {
   const d = parseDateSafe(str);
   if (!d) return str || "—";
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${mm}/${dd}/${d.getFullYear()}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function dateToIso(str) {
@@ -423,7 +421,7 @@ function renderTable(games) {
         <tr class="bb-row${isOpen ? " row-open" : ""}" data-bb-i="${i}" title="Click to view box score">
           <td>${g.season || "—"}</td>
           <td>${g.gameType || "—"}</td>
-          <td><span class="bb-date-btn">${fmtDateSlash(g.dateRaw)}</span> <span class="chevron">${isOpen ? "▴" : "▾"}</span></td>
+          <td><span class="bb-date-btn">${fmtDateShort(g.dateRaw)}</span> <span class="chevron">${isOpen ? "▴" : "▾"}</span></td>
           <td>${mlbLogo(g.homeTeamRaw)}<span>${g.homeTeamRaw}</span></td>
           <td>${mlbLogo(g.awayTeamRaw)}<span>${g.awayTeamRaw}</span></td>
           <td>${g.homeRuns}–${g.awayRuns}</td>
@@ -452,13 +450,13 @@ async function fetchMlbGame(g) {
   const dateStr = dateToIso(g.dateRaw);
   if (!dateStr || !g.homeAbbr || !g.awayAbbr) return null;
   const cacheKey = `${dateStr}|${g.homeAbbr}|${g.awayAbbr}`;
-  if (mlbEspnCache[cacheKey]) return mlbEspnCache[cacheKey];
+  if (mlbGameCache[cacheKey]) return mlbGameCache[cacheKey];
 
   try {
     const res = await fetch(`/.netlify/functions/mlb-game?date=${dateStr}&home=${g.homeAbbr}&away=${g.awayAbbr}`);
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || `Proxy error ${res.status}`);
-    mlbEspnCache[cacheKey] = data;
+    mlbGameCache[cacheKey] = data;
     return data;
   } catch (err) {
     console.error("[mlb-game] failed:", err);
@@ -480,7 +478,7 @@ async function loadMlbDetailForGame(g, panelId) {
   if (!p) return;
 
   if (!data) {
-    p.innerHTML = `<div class="mlb-error">No ESPN box score found for ${fmtDateSlash(g.dateRaw)}.</div>`;
+    p.innerHTML = `<div class="mlb-error">No box score found for ${fmtDateShort(g.dateRaw)}.</div>`;
     return;
   }
   renderMlbDetail(p, data, g);
@@ -640,7 +638,7 @@ function renderMap(games) {
     const gamesHtml = gamesHere.length
       ? `<div class="bb-popup-games">${gamesHere.map((g) => `
           <div class="bb-popup-game">
-            <div class="bb-popup-date">${fmtDateSlash(g.dateRaw)}</div>
+            <div class="bb-popup-date">${fmtDateShort(g.dateRaw)}</div>
             <div class="bb-popup-score-line">${g.homeTeamRaw} ${g.homeRuns} – ${g.awayTeamRaw} ${g.awayRuns}</div>
           </div>`).join("")}</div>`
       : `<div class="bb-popup-games"><div class="bb-popup-game dim">No games attended here yet.</div></div>`;

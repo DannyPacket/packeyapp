@@ -9,9 +9,22 @@ const HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Cache-Control": "public, max-age=300",
 };
+// Error responses must never share the success path's cache lifetime — a
+// transient miss (or an ESPN block) would otherwise get stuck at the CDN
+// edge and keep being served instead of a retry hitting fresh code/data.
+const ERROR_HEADERS = { ...HEADERS, "Cache-Control": "no-store" };
+
+// ESPN's API 403s requests from Netlify Functions' default "node" user-agent
+// in production (works fine from a local machine) — a browser-shaped UA
+// avoids that on some of ESPN's endpoints. NHL's own api-web.nhle.com API
+// (used as the primary source below) isn't affected either way.
+const ESPN_FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "application/json",
+};
 
 function ok(body)  { return { statusCode: 200, headers: HEADERS, body: JSON.stringify(body) }; }
-function err(code, msg) { return { statusCode: code, headers: HEADERS, body: JSON.stringify({ error: msg }) }; }
+function err(code, msg) { return { statusCode: code, headers: ERROR_HEADERS, body: JSON.stringify({ error: msg }) }; }
 
 // ── NHL date lookup ───────────────────────────────────────────
 async function findNhlGameIdByDate(isoDate) {
@@ -32,7 +45,8 @@ async function findNhlGameIdByDate(isoDate) {
 async function findEspnEventIdByDate(date) {
   try {
     const r = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`
+      `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`,
+      { headers: ESPN_FETCH_HEADERS }
     );
     if (!r.ok) return null;
     const sb = await r.json();
@@ -199,7 +213,7 @@ async function fetchNhlGameData(nhlGameId) {
 
 // ── ESPN fallback ─────────────────────────────────────────────
 async function fetchEspnGameData(id) {
-  const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${id}`);
+  const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${id}`, { headers: ESPN_FETCH_HEADERS });
   if (!r.ok) throw new Error(`ESPN summary error: ${r.status}`);
   const raw = await r.json();
 
