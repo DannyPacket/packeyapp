@@ -11,64 +11,60 @@
     "lat": 32.3325457,
     "lon": -64.7371233
   },
-  "Monday, January 1, 2018|Doug & Cida Murphy": {
-    "lat": 41.9870108,
-    "lon": -70.8470783
-  },
   "Saturday, August 25, 2018|Top & Anni Tierney": {
     "lat": 42.351296,
     "lon": -71.0627648
   },
-  "Saturday, November 10, 2018|Doug & CIda Murphy": {
+  "Saturday, November 10, 2018|Doug & Cida Murphy": {
     "lat": 41.9870108,
     "lon": -70.8470783
-  },
-  "Saturday, September 28, 2019|Calum & Yoly Tattersfield": {
-    "lat": 42.0051409,
-    "lon": -71.120976
-  },
-  "Saturday, April 2, 2022|Tim & Meag Paquette": {
-    "lat": 41.3102671,
-    "lon": -71.8534873
-  },
-  "Saturday, November 11, 2023|Charles & Tori Packard": {
-    "lat": 33.5079577,
-    "lon": -117.6570516
-  },
-  "Saturday, October 11, 2025|Kirsten & Tim Bartolini": {
-    "lat": 43.7298178,
-    "lon": -72.9375643
-  },
-  "Sunday, September 6, 2026|Andrew Bonassar & Lexi Curtin": {
-    "lat": 42.5203248,
-    "lon": -70.8893019
   },
   "Monday, November 12, 2018|Laura & Donald Ritchie": {
     "lat": 41.6637268,
     "lon": -70.0656542
   },
-  "Friday, October 22, 2021|Ann & Kyle Riviezzo": {
-    "lat": 41.489513,
-    "lon": -71.326869
-  },
-  "Friday, October 13, 2023|Rachel Lauth & Mitch Agresti": {
-    "lat": 41.704656,
-    "lon": -71.513809
-  },
-  "Sunday, August 10, 2025|Ty & Jocelyn Cabone": {
-    "lat": 42.2366935,
-    "lon": -72.6521665
-  },
-  "Saturday, May 2, 2026|Damon Grey & Erin Shanley": {
-    "lat": 41.3093191,
-    "lon": -72.9258735
+  "Saturday, September 28, 2019|Calum Tattersfield & Yoly Santos": {
+    "lat": 42.0051409,
+    "lon": -71.120976
   },
   "Saturday, July 17, 2021|Patrick Curran & Julia Nucci": {
     "lat": 43.2421299,
     "lon": 12.2230585
   },
+  "Friday, October 22, 2021|Ann Murphy & Kyle Riviezzo": {
+    "lat": 41.4918151,
+    "lon": -71.3276956
+  },
+  "Saturday, April 2, 2022|Tim Paquette & Meag Doyle": {
+    "lat": 41.3102671,
+    "lon": -71.8534873
+  },
+  "Friday, October 13, 2023|Rachel Lauth & Mitch Agresti": {
+    "lat": 41.704656,
+    "lon": -71.513809
+  },
+  "Saturday, November 11, 2023|Charles Packard & Tori Larson": {
+    "lat": 33.5079577,
+    "lon": -117.6570516
+  },
+  "Sunday, August 10, 2025|Ty Cabone & Jocelyn Power": {
+    "lat": 42.2366935,
+    "lon": -72.6521665
+  },
+  "Saturday, October 11, 2025|Kirsten Robinson & Tim Bartolini": {
+    "lat": 43.7298178,
+    "lon": -72.9375643
+  },
   "Friday, November 14, 2025|Sami Marrocchio & Niels Falk": {
     "lat": 33.1976496,
     "lon": -96.6154471
+  },
+  "Saturday, May 2, 2026|Damon Grey & Erin Shanley": {
+    "lat": 41.3093191,
+    "lon": -72.9258735
+  },
+  "Sunday, September 6, 2026|Andrew Bonassar & Lexi Curtin": {
+    "lat": 42.5203248,
+    "lon": -70.8893019
   }
 }

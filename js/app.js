@@ -386,10 +386,15 @@ async function initVenueMap({ mapElId, locationsUrl, rows, keyOf, sortRows, popu
   }
 
   const map = L.map(mapEl, { scrollWheelZoom: false });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    subdomains: "abcd",
+  // CARTO's free anonymous basemap CDN now requires an API key (started
+  // stamping tiles with a "get an API key" watermark), so we use Esri's
+  // free, no-key dark canvas basemap instead. Its tile cache tops out at
+  // zoom 16; maxNativeZoom tells Leaflet to upscale past that rather than
+  // request (and fail on) tiles that don't exist.
+  L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "&copy; Esri &copy; OpenStreetMap contributors",
     maxZoom: 19,
+    maxNativeZoom: 16,
   }).addTo(map);
 
   if (toggle) {
