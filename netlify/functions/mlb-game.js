@@ -58,9 +58,13 @@ function headshotUrl(id) {
 }
 
 async function fetchGameData(gamePk) {
-  const r = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
-  if (!r.ok) throw new Error(`MLB Stats API error: ${r.status}`);
-  const raw = await r.json();
+  const [feedRes, wpRes] = await Promise.all([
+    fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`),
+    fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/winProbability`),
+  ]);
+  if (!feedRes.ok) throw new Error(`MLB Stats API error: ${feedRes.status}`);
+  const raw = await feedRes.json();
+  const wpList = wpRes.ok ? await wpRes.json() : [];
 
   const gd = raw.gameData || {};
   const live = raw.liveData || {};
@@ -122,40 +126,76 @@ async function fetchGameData(gamePk) {
     return away != null && home != null ? { label, away: String(away), home: String(home) } : null;
   }).filter(Boolean);
 
-  // Stars — MLB's natural equivalent of hockey's three stars is the game's
-  // pitching decisions (win/loss/save), each with their actual line from the
-  // box score (boxscore.teams.{side}.players is keyed "ID<personId>").
   const homePitchers = new Set(boxTeams.home?.pitchers || []);
-  const decisions = live.decisions || {};
-  const PITCH_STAT_DEFS = [
-    { name: "inningsPitched", label: "IP" },
-    { name: "hits", label: "H" },
-    { name: "earnedRuns", label: "ER" },
-    { name: "baseOnBalls", label: "BB" },
-    { name: "strikeOuts", label: "K" },
-  ];
-  function pitchingLine(personId, side) {
-    const p = boxTeams[side]?.players?.[`ID${personId}`];
-    const line = p?.stats?.pitching;
-    if (!line) return [];
-    return PITCH_STAT_DEFS
-      .filter(({ name }) => line[name] != null)
-      .map(({ name, label }) => ({ label, value: String(line[name]) }));
+  function battingSummary(personId, side) {
+    return boxTeams[side]?.players?.[`ID${personId}`]?.stats?.batting?.summary || "";
   }
-  const ROLE_DEFS = [
-    { key: "winner", role: "Win" },
-    { key: "loser", role: "Loss" },
-    { key: "save", role: "Save" },
-  ];
-  const stars = ROLE_DEFS.map(({ key, role }) => {
+
+  // Win-probability-added per at-bat (from the home team's perspective),
+  // keyed by atBatIndex — used to rank standout batters the same way
+  // MLB.com's own "Top Performers" module does.
+  const wpaByAtBat = {};
+  for (const w of (wpList || [])) {
+    if (w && w.atBatIndex != null) wpaByAtBat[w.atBatIndex] = w.homeTeamWinProbabilityAdded || 0;
+  }
+  const battingWpa = {}; // personId -> { name, side, total }
+  for (const p of allPlays) {
+    const idx = p.about?.atBatIndex;
+    const wpaHome = wpaByAtBat[idx];
+    const batter = p.matchup?.batter;
+    if (wpaHome == null || !batter) continue;
+    const isHomeBatting = p.about?.isTopInning === false;
+    const wpaForBatter = isHomeBatting ? wpaHome : -wpaHome;
+    if (!battingWpa[batter.id]) battingWpa[batter.id] = { name: batter.fullName || "", side: isHomeBatting ? "home" : "away", total: 0 };
+    battingWpa[batter.id].total += wpaForBatter;
+  }
+
+  // Player of the Game — the batter of the game's final scoring play (the
+  // walk-off hero in extras, or whoever plated the last run otherwise).
+  // Verified against MLB.com's own Gameday page for a real walk-off game:
+  // their pick matches this exactly, even though it isn't simply whoever has
+  // the single highest aggregate WPA in the game.
+  const scoringIdxList = live.plays?.scoringPlays || [];
+  const lastScoringPlay = scoringIdxList.length ? allPlays[scoringIdxList[scoringIdxList.length - 1]] : null;
+  const potmBatter = lastScoringPlay?.matchup?.batter || null;
+  const potmSide = lastScoringPlay ? (lastScoringPlay.about?.isTopInning ? "away" : "home") : null;
+
+  const playerOfGame = potmBatter ? {
+    name: potmBatter.fullName || "",
+    team: potmSide === "home" ? homeAbbr : awayAbbr,
+    headshot: headshotUrl(potmBatter.id),
+    summary: battingSummary(potmBatter.id, potmSide),
+    wpaPct: battingWpa[potmBatter.id] ? Math.round(battingWpa[potmBatter.id].total * 10) / 10 : null,
+  } : null;
+
+  const topPerformers = Object.entries(battingWpa)
+    .filter(([id]) => !potmBatter || Number(id) !== potmBatter.id)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 3)
+    .map(([id, v]) => ({
+      name: v.name,
+      team: v.side === "home" ? homeAbbr : awayAbbr,
+      headshot: headshotUrl(id),
+      summary: battingSummary(id, v.side),
+    }));
+
+  // Pitching decisions move under Team Stats as a compact line rather than
+  // being treated as "stars" — that's really the batters' spotlight above.
+  const decisions = live.decisions || {};
+  function decisionInfo(key) {
     const p = decisions[key];
     if (!p) return null;
     const side = homePitchers.has(p.id) ? "home" : "away";
-    const team = side === "home" ? homeAbbr : awayAbbr;
-    return { role, name: p.fullName || "", team, headshot: headshotUrl(p.id), stats: pitchingLine(p.id, side) };
-  }).filter(Boolean);
+    const record = (boxTeams[side]?.players?.[`ID${p.id}`]?.stats?.pitching?.note || "").replace(/[()]/g, "");
+    return { name: p.fullName || "", record };
+  }
+  const pitchingDecisions = {
+    win: decisionInfo("winner"),
+    loss: decisionInfo("loser"),
+    save: decisionInfo("save"),
+  };
 
-  return { score, innings, totals: scoreTotals, scoringPlays, teamStats, stars };
+  return { score, innings, totals: scoreTotals, scoringPlays, teamStats, playerOfGame, topPerformers, pitchingDecisions };
 }
 
 exports.handler = async (event) => {

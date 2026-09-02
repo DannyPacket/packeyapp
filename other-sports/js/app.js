@@ -485,7 +485,7 @@ async function loadMlbDetailForGame(g, panelId) {
 }
 
 function renderMlbDetail(panel, data, g) {
-  const { score, innings, totals, scoringPlays, teamStats, stars, gamePk } = data;
+  const { score, innings, totals, scoringPlays, teamStats, playerOfGame, topPerformers, pitchingDecisions, gamePk } = data;
   const gamedayUrl = gamePk ? `https://www.mlb.com/gameday/${gamePk}` : "https://www.mlb.com/scores";
 
   const inningHeaderCells = innings.map((p) => `<th>${p.label}</th>`).join("");
@@ -527,10 +527,11 @@ function renderMlbDetail(panel, data, g) {
         <div class="mlb-section">
           <div class="mlb-section-title">Team Stats</div>
           ${buildMlbTeamStats(teamStats, score)}
+          ${buildMlbPitchingDecisions(pitchingDecisions)}
         </div>
         <div class="mlb-section">
           <div class="mlb-section-title">Player of the Game</div>
-          ${buildMlbStars(stars)}
+          ${buildMlbPotg(playerOfGame, topPerformers)}
         </div>
       </div>
     </div>`;
@@ -568,34 +569,40 @@ function buildMlbTeamStats(teamStats, score) {
   </table>`;
 }
 
-function mlbStarCardHtml(st) {
-  const statLine = (st.stats || []).map((s) => `${s.label}: ${s.value}`).join(" · ");
+function mlbPlayerCardHtml(st, { rankLabel } = {}) {
   const headshot = st.headshot
     ? `<img src="${st.headshot}" class="mlb-star-headshot" alt="${st.name}" onerror="this.style.display='none'">`
     : "";
   return `<div class="mlb-star-card">
     <div class="mlb-star-card-body">
       <div>
-        <div class="mlb-star-rank">${st.role}</div>
-        <div class="mlb-star-name">${st.name || "—"}</div>
-        <div class="mlb-star-meta">${st.team || ""}</div>
-        ${statLine ? `<div class="mlb-star-stat">${statLine}</div>` : ""}
+        ${rankLabel ? `<div class="mlb-star-rank">${rankLabel}</div>` : ""}
+        <div class="mlb-star-name">${st.name || "—"}${mlbLogoNoName(st.team)}</div>
+        ${st.summary ? `<div class="mlb-star-stat">${st.summary}</div>` : ""}
       </div>
       ${headshot}
     </div>
   </div>`;
 }
 
-function buildMlbStars(stars) {
-  if (!stars || !stars.length) return `<p class="mlb-empty">No stars data available.</p>`;
-  // The winning pitcher (first, per ROLE_DEFS order in mlb-game.js) stands in
-  // for "Player of the Game" since MLB Stats API doesn't hand us a formal
-  // award — the loss/save decisions round out a short "Top Performers" list.
-  const [potm, ...rest] = stars;
-  const restHtml = rest.length
-    ? `<div class="mlb-top-performers-label">Top Performers</div>${rest.map(mlbStarCardHtml).join("")}`
+function buildMlbPotg(playerOfGame, topPerformers) {
+  if (!playerOfGame) return `<p class="mlb-empty">No player of the game data available.</p>`;
+  const potgLabel = playerOfGame.wpaPct != null ? `+${playerOfGame.wpaPct}% WPA` : null;
+  const potgHtml = mlbPlayerCardHtml(playerOfGame, { rankLabel: potgLabel });
+  const topHtml = (topPerformers && topPerformers.length)
+    ? `<div class="mlb-top-performers-label">Top Performers</div>${topPerformers.map((p) => mlbPlayerCardHtml(p)).join("")}`
     : "";
-  return `<div class="mlb-stars-col">${mlbStarCardHtml(potm)}${restHtml}</div>`;
+  return `<div class="mlb-stars-col">${potgHtml}${topHtml}</div>`;
+}
+
+function buildMlbPitchingDecisions(decisions) {
+  if (!decisions) return "";
+  const parts = [];
+  if (decisions.win) parts.push(`<span class="mlb-decision-role">W</span> ${decisions.win.name} (${(decisions.win.record || "").replace(/^W,?\s*/, "")})`);
+  if (decisions.loss) parts.push(`<span class="mlb-decision-role">L</span> ${decisions.loss.name} (${(decisions.loss.record || "").replace(/^L,?\s*/, "")})`);
+  if (decisions.save) parts.push(`<span class="mlb-decision-role">SV</span> ${decisions.save.name} (${(decisions.save.record || "").replace(/^SV,?\s*/, "")})`);
+  if (!parts.length) return "";
+  return `<div class="mlb-pitching-decisions">${parts.join(" &nbsp;·&nbsp; ")}</div>`;
 }
 
 // ── MAP ───────────────────────────────────────────────────────

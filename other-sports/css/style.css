@@ -165,13 +165,14 @@
 .os-app .team-stats-table td:nth-child(2), .os-app .team-stats-table td:nth-child(3) { text-align: center; font-family: var(--font-d); font-weight: 600; font-size: 0.85rem; color: var(--text); width: 30%; }
 .os-app .team-stats-table .stat-label { color: var(--text-dim); font-size: 0.78rem; }
 .os-app .team-stats-table .stat-val-hi { color: #4caf7d; }
+.os-app .mlb-pitching-decisions { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed var(--border); }
+.os-app .mlb-decision-role { font-family: var(--font-d); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; color: var(--rust); }
 
 .os-app .mlb-stars-col { display: flex; flex-direction: column; gap: 0.45rem; }
 .os-app .mlb-star-card { background: var(--surface3); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.85rem; }
 .os-app .mlb-star-card-body { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
 .os-app .mlb-star-rank { font-size: 0.7rem; font-family: var(--font-d); font-weight: 700; color: var(--rust); letter-spacing: 0.05em; margin-bottom: 3px; }
-.os-app .mlb-star-name { font-size: 0.9rem; font-weight: 500; color: var(--text); }
-.os-app .mlb-star-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 1px; }
+.os-app .mlb-star-name { font-size: 0.9rem; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
 .os-app .mlb-star-stat { font-size: 0.78rem; color: #4caf7d; margin-top: 3px; font-family: var(--font-d); font-weight: 600; }
 .os-app .mlb-star-headshot { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; background: var(--surface3); }
 
