@@ -27,10 +27,39 @@
 .os-app .os-coming-soon-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 
 /* ── STAT CARDS ── */
-.os-app .stat-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-.os-app .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; text-align: center; }
+.os-app .stat-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+.os-app .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; text-align: center; flex: 0 1 200px; }
 .os-app .stat-card-num { font-family: var(--font-d); font-size: 2rem; font-weight: 700; color: var(--rust); line-height: 1; }
 .os-app .stat-card-label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-top: 0.35rem; }
+
+/* ── FILTERS ── */
+.os-app .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center; }
+.os-app .filter-label { font-family: var(--font-d); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+.os-app .filter-sep { width: 1px; height: 1.2em; background: var(--border); align-self: center; margin: 0 0.25rem; flex-shrink: 0; }
+.os-app .pill { font-family: var(--font-d); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); padding: 0.32rem 0.75rem; border-radius: 999px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.os-app .pill:hover { border-color: var(--rust-dim); color: var(--text); }
+.os-app .pill.active { background: var(--rust); color: var(--black); border-color: var(--rust); }
+.os-app .chevron { font-size: 0.7rem; color: var(--text-dim); transition: transform 0.18s; display: inline-block; margin-left: 4px; }
+
+/* Generic checklist dropdown, reused for Season / Home Team / Away Team */
+.os-app .dd-wrap { position: relative; }
+.os-app .dd-wrap.dd-open .dd-trigger.pill .chevron { transform: rotate(180deg); }
+.os-app .dd-panel {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 10000;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 0.4rem;
+  min-width: 170px; max-height: 320px; overflow-y: auto;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+}
+.os-app .dd-panel.open { display: block; }
+.os-app .dd-item {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; border-radius: 6px; cursor: pointer;
+  font-family: var(--font-d); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em; color: var(--text-dim);
+  transition: background 0.1s, color 0.1s; user-select: none;
+}
+.os-app .dd-item:hover { background: var(--surface3); color: var(--text); }
+.os-app .dd-item input[type="checkbox"] { accent-color: var(--rust); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+.os-app .dd-item .team-logo { width: 18px; height: 18px; margin-right: 0; flex-shrink: 0; }
+.os-app .dd-divider { height: 1px; background: var(--border); margin: 0.3rem 0.25rem; }
 
 /* ── TEAM LOGOS ── */
 .os-app .team-logo { width: 22px; height: 22px; object-fit: contain; vertical-align: middle; margin-right: 6px; border-radius: 2px; }

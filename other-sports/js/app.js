@@ -80,12 +80,15 @@ function resolveAbbr(name) {
   return NAME_TO_ABBR[(name || "").trim()] || null;
 }
 
+function logoSrcForAbbr(abbr) {
+  const team = TEAMS_BY_ABBR[abbr];
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${(team.espn || abbr.toLowerCase())}.png`;
+}
+
 function mlbLogo(name) {
   const abbr = resolveAbbr(name);
   if (!abbr) return "";
-  const team = TEAMS_BY_ABBR[abbr];
-  const src = `https://a.espncdn.com/i/teamlogos/mlb/500/${(team.espn || abbr.toLowerCase())}.png`;
-  return `<img src="${src}" alt="${name}" class="team-logo" onerror="this.style.display='none'">`;
+  return `<img src="${logoSrcForAbbr(abbr)}" alt="${name}" class="team-logo" onerror="this.style.display='none'">`;
 }
 
 // ── STATE ─────────────────────────────────────────────────────
@@ -95,11 +98,14 @@ let sortDir = "desc";
 let selectedAbbr = null;
 let mapInstance = null;
 let mapMarkers = [];
+let openDropdown = null; // null | "season" | "home" | "away"
+let activeFilters = { gameType: "All", season: [], homeTeam: [], awayTeam: [] };
 
 // ── BOOT ──────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   attachSortListeners();
+  setupFilterDelegation();
   loadBaseball();
 });
 
@@ -141,9 +147,7 @@ async function loadBaseball() {
       }))
       .filter((g) => g.dateRaw && g.homeTeamRaw);
 
-    renderStats();
-    renderTable();
-    renderMap();
+    renderAll();
   } catch (err) {
     errorEl.innerHTML = `<div class="os-error-msg">⚠️ Could not load baseball data: ${err.message}</div>`;
     errorEl.style.display = "block";
@@ -210,7 +214,7 @@ function attachSortListeners() {
       const key = th.dataset.sort;
       if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
       else { sortKey = key; sortDir = key === "date" ? "desc" : "asc"; }
-      renderTable();
+      renderAll();
     });
   });
 }
@@ -229,20 +233,150 @@ function updateSortIndicators() {
   });
 }
 
+// ── FILTERS ───────────────────────────────────────────────────
+// Home/away team options are only ever the teams that actually appear in the
+// data (not all 30 MLB teams) — same idea as the hockey map's opponent filter.
+function uniqueSeasons() {
+  return [...new Set(ALL_GAMES.filter((g) => g.season).map((g) => g.season))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+}
+function uniqueHomeTeams() {
+  const abbrs = new Set(ALL_GAMES.map((g) => g.homeAbbr).filter(Boolean));
+  return [...abbrs].sort((a, b) => (TEAMS_BY_ABBR[a]?.full || a).localeCompare(TEAMS_BY_ABBR[b]?.full || b));
+}
+function uniqueAwayTeams() {
+  const abbrs = new Set(ALL_GAMES.map((g) => g.awayAbbr).filter(Boolean));
+  return [...abbrs].sort((a, b) => (TEAMS_BY_ABBR[a]?.full || a).localeCompare(TEAMS_BY_ABBR[b]?.full || b));
+}
+
+function filteredGames() {
+  return ALL_GAMES.filter((g) => {
+    if (activeFilters.gameType !== "All" && g.gameType !== activeFilters.gameType) return false;
+    if (activeFilters.season.length && !activeFilters.season.includes(g.season)) return false;
+    if (activeFilters.homeTeam.length && !activeFilters.homeTeam.includes(g.homeAbbr)) return false;
+    if (activeFilters.awayTeam.length && !activeFilters.awayTeam.includes(g.awayAbbr)) return false;
+    return true;
+  });
+}
+
+function ddChecklist(kind, options, selected, labelOf, withLogo) {
+  const noun = kind === "season" ? "Seasons" : "Teams";
+  const allItem = `<label class="dd-item dd-all">
+      <input type="checkbox" class="dd-check" data-dd-kind="${kind}" value="__all__"${selected.length === 0 ? " checked" : ""}>
+      <span>All ${noun}</span>
+    </label><div class="dd-divider"></div>`;
+  const items = options.map((v) => `<label class="dd-item">
+      <input type="checkbox" class="dd-check" data-dd-kind="${kind}" value="${v}"${selected.includes(v) ? " checked" : ""}>
+      ${withLogo ? mlbLogoNoName(v) : ""}
+      <span>${labelOf(v)}</span>
+    </label>`).join("");
+  return allItem + items;
+}
+function mlbLogoNoName(abbr) {
+  return `<img src="${logoSrcForAbbr(abbr)}" class="team-logo" onerror="this.style.display='none'">`;
+}
+
+function filtersHTML() {
+  const gt = activeFilters.gameType;
+  const seasons = uniqueSeasons();
+  const homeTeams = uniqueHomeTeams();
+  const awayTeams = uniqueAwayTeams();
+
+  const seasonSel = activeFilters.season, homeSel = activeFilters.homeTeam, awaySel = activeFilters.awayTeam;
+  const seasonLabel = seasonSel.length === 0 ? "All Seasons" : seasonSel.length === 1 ? seasonSel[0] : `${seasonSel.length} Seasons`;
+  const homeLabel = homeSel.length === 0 ? "All Teams" : homeSel.length === 1 ? (TEAMS_BY_ABBR[homeSel[0]]?.full || homeSel[0]) : `${homeSel.length} Teams`;
+  const awayLabel = awaySel.length === 0 ? "All Teams" : awaySel.length === 1 ? (TEAMS_BY_ABBR[awaySel[0]]?.full || awaySel[0]) : `${awaySel.length} Teams`;
+
+  return `<div class="filters">
+    <span class="filter-label">Game Type:</span>
+    ${["All", "Pre", "Regular", "Post"].map((v) => `<button class="pill${gt === v ? " active" : ""}" data-filter="${v}" data-group="gameType">${v}</button>`).join("")}
+    <span class="filter-sep"></span>
+    <span class="filter-label">Season:</span>
+    <div class="dd-wrap${openDropdown === "season" ? " dd-open" : ""}" data-dd="season">
+      <button class="pill dd-trigger${seasonSel.length ? " active" : ""}">${seasonLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${openDropdown === "season" ? " open" : ""}">${ddChecklist("season", seasons, seasonSel, (s) => s, false)}</div>
+    </div>
+    <span class="filter-sep"></span>
+    <span class="filter-label">Home Team:</span>
+    <div class="dd-wrap${openDropdown === "home" ? " dd-open" : ""}" data-dd="home">
+      <button class="pill dd-trigger${homeSel.length ? " active" : ""}">${homeLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${openDropdown === "home" ? " open" : ""}">${ddChecklist("home", homeTeams, homeSel, (a) => TEAMS_BY_ABBR[a]?.full || a, true)}</div>
+    </div>
+    <span class="filter-sep"></span>
+    <span class="filter-label">Away Team:</span>
+    <div class="dd-wrap${openDropdown === "away" ? " dd-open" : ""}" data-dd="away">
+      <button class="pill dd-trigger${awaySel.length ? " active" : ""}">${awayLabel} <span class="chevron">▾</span></button>
+      <div class="dd-panel${openDropdown === "away" ? " open" : ""}">${ddChecklist("away", awayTeams, awaySel, (a) => TEAMS_BY_ABBR[a]?.full || a, true)}</div>
+    </div>
+  </div>`;
+}
+
+function setupFilterDelegation() {
+  // Game Type pills
+  document.addEventListener("click", (e) => {
+    const pill = e.target.closest(".pill[data-filter]");
+    if (!pill) return;
+    const { group, filter: val } = pill.dataset;
+    if (!group || !val) return;
+    activeFilters[group] = val;
+    renderAll();
+  });
+
+  // Dropdown trigger toggle + outside-click close (only one open at a time)
+  document.addEventListener("click", (e) => {
+    const trigger = e.target.closest(".dd-trigger");
+    if (trigger) {
+      const kind = trigger.closest(".dd-wrap")?.dataset.dd;
+      openDropdown = openDropdown === kind ? null : kind;
+      renderAll();
+      return;
+    }
+    if (!e.target.closest(".dd-wrap") && openDropdown) {
+      openDropdown = null;
+      renderAll();
+    }
+  });
+
+  // Checklist checkbox change
+  document.addEventListener("change", (e) => {
+    const cb = e.target.closest(".dd-check");
+    if (!cb) return;
+    const kind = cb.dataset.ddKind;
+    const field = kind === "season" ? "season" : kind === "home" ? "homeTeam" : "awayTeam";
+    const val = cb.value;
+    if (val === "__all__") {
+      activeFilters[field] = [];
+    } else {
+      const idx = activeFilters[field].indexOf(val);
+      if (idx === -1) activeFilters[field].push(val);
+      else activeFilters[field].splice(idx, 1);
+    }
+    renderAll();
+  });
+}
+
+// ── MASTER RENDER ─────────────────────────────────────────────
+function renderAll() {
+  const games = filteredGames();
+  document.getElementById("bb-filters").innerHTML = filtersHTML();
+  renderStats(games);
+  renderTable(games);
+  renderMap(games);
+}
+
 // ── STATS ─────────────────────────────────────────────────────
-function renderStats() {
-  const gp = ALL_GAMES.length;
-  const homeTotal = ALL_GAMES.reduce((s, g) => s + g.homeRuns, 0);
-  const awayTotal = ALL_GAMES.reduce((s, g) => s + g.awayRuns, 0);
+function renderStats(games) {
+  const gp = games.length;
+  const homeTotal = games.reduce((s, g) => s + g.homeRuns, 0);
+  const awayTotal = games.reduce((s, g) => s + g.awayRuns, 0);
   document.getElementById("bb-gp").textContent = gp;
   document.getElementById("bb-home-score").textContent = homeTotal;
   document.getElementById("bb-away-score").textContent = awayTotal;
 }
 
 // ── TABLE ─────────────────────────────────────────────────────
-function renderTable() {
+function renderTable(games) {
   const heading = document.getElementById("bb-table-heading");
-  const games = selectedAbbr ? ALL_GAMES.filter((g) => g.homeAbbr === selectedAbbr) : ALL_GAMES;
+  const rows = selectedAbbr ? games.filter((g) => g.homeAbbr === selectedAbbr) : games;
 
   if (selectedAbbr) {
     const team = TEAMS_BY_ABBR[selectedAbbr];
@@ -250,7 +384,7 @@ function renderTable() {
     document.getElementById("bb-clear").addEventListener("click", () => {
       selectedAbbr = null;
       mapMarkers.forEach((m) => m.closePopup());
-      renderTable();
+      renderAll();
     });
   } else {
     heading.textContent = "All Games";
@@ -258,7 +392,7 @@ function renderTable() {
 
   updateSortIndicators();
 
-  const sorted = sortedGames(games);
+  const sorted = sortedGames(rows);
   const tbody = document.querySelector("#bb-table tbody");
   tbody.innerHTML = sorted.length
     ? sorted.map((g) => `
@@ -277,14 +411,12 @@ function renderTable() {
 
 // ── MAP ───────────────────────────────────────────────────────
 function createVenueIcon(abbr, visited, selected) {
-  const team = TEAMS_BY_ABBR[abbr];
-  const src = `https://a.espncdn.com/i/teamlogos/mlb/500/${(team.espn || abbr.toLowerCase())}.png`;
   let cls = "venue-logo-marker";
   if (!visited && !selected) cls += " venue-logo-dim";
   if (selected) cls += " venue-logo-selected";
   return L.divIcon({
     className: "logo-icon-wrap",
-    html: `<div class="${cls}"><img src="${src}" alt="${abbr}" onerror="this.style.display='none'"></div>`,
+    html: `<div class="${cls}"><img src="${logoSrcForAbbr(abbr)}" alt="${abbr}" onerror="this.style.display='none'"></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
     tooltipAnchor: [0, -20],
@@ -292,7 +424,7 @@ function createVenueIcon(abbr, visited, selected) {
   });
 }
 
-function renderMap() {
+function renderMap(games) {
   if (!mapInstance) {
     mapInstance = L.map("bb-map", { center: [39, -96], zoom: 4, minZoom: 3, maxZoom: 13 });
     L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
@@ -306,7 +438,7 @@ function renderMap() {
   mapMarkers = [];
 
   MLB_TEAMS.forEach((team) => {
-    const gamesHere = ALL_GAMES.filter((g) => g.homeAbbr === team.abbr).sort((a, b) => {
+    const gamesHere = games.filter((g) => g.homeAbbr === team.abbr).sort((a, b) => {
       const da = parseDateSafe(a.dateRaw), db = parseDateSafe(b.dateRaw);
       return (db || 0) - (da || 0);
     });
@@ -316,7 +448,6 @@ function renderMap() {
     const marker = L.marker([team.lat, team.lon], { icon }).addTo(mapInstance);
 
     const wikiUrl = `https://en.wikipedia.org/wiki/${team.wiki || team.park.replace(/ /g, "_")}`;
-    const logoSrc = `https://a.espncdn.com/i/teamlogos/mlb/500/${(team.espn || team.abbr.toLowerCase())}.png`;
 
     marker.bindTooltip(
       `<div class="venue-tip-team">${team.full}</div><div class="venue-tip-arena">${team.park}</div>`,
@@ -338,7 +469,7 @@ function renderMap() {
             <div class="bb-popup-team">${team.full}</div>
             <div class="bb-popup-arena"><a href="${wikiUrl}" target="_blank" rel="noopener">${team.park} ↗</a></div>
           </div>
-          <img src="${logoSrc}" class="bb-popup-logo" alt="${team.full}" onerror="this.style.display='none'">
+          <img src="${logoSrcForAbbr(team.abbr)}" class="bb-popup-logo" alt="${team.full}" onerror="this.style.display='none'">
         </div>
         ${gamesHtml}
       </div>`,
@@ -349,14 +480,14 @@ function renderMap() {
       mapMarkers.forEach((m) => m.getElement()?.querySelector(".venue-logo-marker")?.classList.remove("venue-logo-selected"));
       marker.getElement()?.querySelector(".venue-logo-marker")?.classList.add("venue-logo-selected");
       selectedAbbr = team.abbr;
-      renderTable();
+      renderTable(filteredGames());
     });
 
     marker.on("popupclose", () => {
       marker.getElement()?.querySelector(".venue-logo-marker")?.classList.remove("venue-logo-selected");
       if (selectedAbbr === team.abbr) {
         selectedAbbr = null;
-        renderTable();
+        renderTable(filteredGames());
       }
     });
 
