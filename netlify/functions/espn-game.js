@@ -26,6 +26,16 @@ const ESPN_FETCH_HEADERS = {
 function ok(body)  { return { statusCode: 200, headers: HEADERS, body: JSON.stringify(body) }; }
 function err(code, msg) { return { statusCode: code, headers: ERROR_HEADERS, body: JSON.stringify({ error: msg }) }; }
 
+// Special/exhibition games play under NHL-issued gamecenter IDs but don't
+// involve BOS, so the BOS-only date search below (findNhlGameIdByDate) can't
+// find them — they'd otherwise fall through to the ESPN fallback, which
+// Netlify Functions can't reach in production (ESPN's API 403s its outbound
+// IPs). NHL's own api-web.nhle.com API has full data for these anyway since
+// they're still NHL-tracked games, just not part of a team's own schedule.
+const SPECIAL_NHL_GAME_IDS = {
+  "2025-02-20": "2024200007", // 4 Nations Face-Off Final: CAN vs USA
+};
+
 // ── NHL date lookup ───────────────────────────────────────────
 async function findNhlGameIdByDate(isoDate) {
   try {
@@ -446,7 +456,7 @@ exports.handler = async (event) => {
       : null;
 
     // Resolve NHL game ID and ESPN event ID in parallel from the date
-    let resolvedNhlId = nhlGameId || null;
+    let resolvedNhlId = nhlGameId || (isoDate && SPECIAL_NHL_GAME_IDS[isoDate]) || null;
     if (isoDate && (!resolvedNhlId || !espnId)) {
       const [nhlId, espnEventId] = await Promise.all([
         resolvedNhlId ? Promise.resolve(resolvedNhlId) : findNhlGameIdByDate(isoDate),
