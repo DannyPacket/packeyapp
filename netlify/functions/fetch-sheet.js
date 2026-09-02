@@ -4,6 +4,7 @@ const CATEGORY_GIDS = {
   weddings: "889524951",
   concerts: "1410391466",
   "living-situations": "499935000",
+  baseball: "1746980797",
 };
 
 exports.handler = async (event) => {

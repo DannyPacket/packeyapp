@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Other Sports — Packey</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="site-title">🧭 Packey</div>
+    <nav class="main-nav">
+      <a href="../index.html">Home</a>
+      <a href="../hockey/index.html">Hockey</a>
+      <a href="index.html" class="active">Other Sports</a>
+      <a href="../weddings/index.html">Weddings</a>
+      <a href="../concerts/index.html">Concerts</a>
+      <a href="../living-situations/index.html">Living Situations</a>
+    </nav>
+  </div>
+</header>
+
+<div class="os-app">
+
+  <div class="os-subheader">
+    <div class="site-title">🏟️ Other Sports</div>
+    <nav class="tabs">
+      <button class="active" data-tab="tab-baseball">Baseball</button>
+      <button data-tab="tab-basketball">Basketball</button>
+      <button data-tab="tab-football">Football</button>
+      <button data-tab="tab-other">Other</button>
+    </nav>
+  </div>
+
+  <div class="os-main">
+    <div id="os-loading" class="os-loading">Loading game data…</div>
+    <div id="os-error" style="display:none"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: BASEBALL
+    ══════════════════════════════════════════════════════ -->
+    <div id="tab-baseball" class="tab-panel active">
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-card-num" id="bb-gp">—</div><div class="stat-card-label">Games Attended</div></div>
+        <div class="stat-card"><div class="stat-card-num" id="bb-home-score">—</div><div class="stat-card-label">Home Score (Total)</div></div>
+        <div class="stat-card"><div class="stat-card-num" id="bb-away-score">—</div><div class="stat-card-label">Away Score (Total)</div></div>
+      </div>
+
+      <div class="section-heading">Ballparks <span class="section-hint">— lit-up parks are ones you've visited · click a park for details</span></div>
+      <div id="bb-map" class="os-map"></div>
+
+      <div class="section-heading" id="bb-table-heading">All Games</div>
+      <div class="table-wrap">
+        <table id="bb-table" class="entries-table">
+          <thead>
+            <tr>
+              <th data-sort="season">Season</th>
+              <th data-sort="gameType">Game Type</th>
+              <th data-sort="date">Date</th>
+              <th data-sort="homeTeam">Home Team</th>
+              <th data-sort="awayTeam">Away Team</th>
+              <th data-sort="score">Score</th>
+              <th data-sort="guest">Guest</th>
+              <th data-sort="notes">Notes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: BASKETBALL
+    ══════════════════════════════════════════════════════ -->
+    <div id="tab-basketball" class="tab-panel">
+      <div class="os-coming-soon">
+        <div class="os-coming-soon-icon">🏀</div>
+        <p>Basketball games are coming soon.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: FOOTBALL
+    ══════════════════════════════════════════════════════ -->
+    <div id="tab-football" class="tab-panel">
+      <div class="os-coming-soon">
+        <div class="os-coming-soon-icon">🏈</div>
+        <p>Football games are coming soon.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: OTHER
+    ══════════════════════════════════════════════════════ -->
+    <div id="tab-other" class="tab-panel">
+      <div class="os-coming-soon">
+        <div class="os-coming-soon-icon">🎽</div>
+        <p>Everything else is coming soon.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>Packey — a personal log of adventures.</footer>
+
+</body>
+</html>

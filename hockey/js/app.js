@@ -1319,10 +1319,13 @@ function renderMap(games) {
 
   if (!mapInstance) {
     mapInstance = L.map("arena-map", { center: [44, -97], zoom: 4, minZoom: 3, maxZoom: 13 });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-      subdomains: "abcd",
+    // CARTO's free anonymous basemap CDN now requires an API key (started
+    // stamping tiles with a "get an API key" watermark), so we use Esri's
+    // free, no-key dark canvas basemap instead.
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "&copy; Esri &copy; OpenStreetMap contributors",
       maxZoom: 19,
+      maxNativeZoom: 16,
     }).addTo(mapInstance);
   }
 
