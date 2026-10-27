@@ -10,6 +10,7 @@ packeyapp/
 ├── weddings/index.html               ← wedding entries (Weddings tab)
 ├── concerts/index.html               ← concert entries (Concerts tab)
 ├── living-situations/index.html      ← living situation entries (Living tab)
+├── receipts/index.html               ← Receipt Splitter (self-contained; paste receipt text, split between people)
 ├── hockey/                           ← Bruins attendance tracker (formerly its own site)
 │   ├── index.html                   ← shares the top nav, has its own gold-themed sub-nav below it
 │   ├── css/style.css                ← hockey's original styles, scoped under .hockey-app
